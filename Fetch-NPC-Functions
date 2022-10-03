@@ -1,0 +1,58 @@
+function GenerateRandomNPC (Parent, RigType)
+	local NPC
+	local Name
+	
+	local Players = game:GetService"Players"
+	local HttpService = game:GetService"HttpService"
+	local Anim = "https://raw.githubusercontent.com/redpawed/Public-Links/main/NPC-Animation"
+
+	local s, e = pcall(function()
+		local ID = math.random(10000000, 1000000000)
+		local Desc = Players:GetHumanoidDescriptionFromUserId(ID)
+		NPC = Players:CreateHumanoidModelFromDescription(Desc, RigType)
+		Name = Players:GetNameFromUserIdAsync(ID)
+	end)
+
+	if s then
+		NPC:PivotTo(CFrame.new(0, 30, 0))
+		NS(HttpService:GetAsync(Anim), NPC)
+		NPC.Name = Name
+		NPC.Humanoid.DisplayName = Name
+		NPC:WaitForChild"HumanoidRootPart"
+		NPC.Parent = Parent
+		return NPC
+	else
+		return GenerateRandomNPC(Parent, RigType)
+	end
+end
+
+function FetchCharacterModel (Input, RigType, Parent)
+	local NPC
+	
+	local Players = game:GetService"Players"
+	local HttpService = game:GetService"HttpService"
+	local Anim = "https://raw.githubusercontent.com/redpawed/Public-Links/main/NPC-Animation"
+
+	if not tonumber(Input) then
+		local ID = Players:GetUserIdFromNameAsync(Input)
+		local Desc = Players:GetHumanoidDescriptionFromUserId(ID)
+		NPC = Players:CreateHumanoidModelFromDescription(Desc, RigType)
+
+		NPC.Name = Players:GetNameFromUserIdAsync(ID)
+		NPC.Humanoid.DisplayName = Players:GetNameFromUserIdAsync(ID)
+		NPC.Parent = Parent
+	else
+		local Desc = Players:GetHumanoidDescriptionFromUserId(Input)
+		NPC = Players:CreateHumanoidModelFromDescription(Desc, RigType)
+
+		NPC.Name = Players:GetNameFromUserIdAsync(Input)
+		NPC:WaitForChild"HumanoidRootPart"
+		NPC.Parent = Parent
+	end
+
+	NPC:PivotTo(CFrame.new(0, 30, 0))
+	NS(HttpService:GetAsync(Anim), NPC)
+	return NPC
+end
+
+return GenerateRandomNPC, FetchCharacterModel
