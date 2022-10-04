@@ -29,7 +29,7 @@ function GenerateRandomNPC (Parent, RigType, Conditions)
 		NPC.Parent = Parent
 		return NPC
 	else
-		return GenerateRandomNPC(Parent, RigType)
+		return GenerateRandomNPC(Parent, RigType, Conditions)
 	end
 end
 
