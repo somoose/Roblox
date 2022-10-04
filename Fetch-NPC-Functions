@@ -4,8 +4,10 @@ local players = game:GetService"Players"
 local http = game:GetService"HttpService"
 
 local animation = "https://raw.githubusercontent.com/redpawed/Public-Links/main/NPC-Animation"
-local animationcode = pcall(function()
-	return http:GetAsync(animation)
+local animationcode
+
+pcall(function()
+	animationcode = http:GetAsync(animation)
 end)
 
 function npclib.getrandom (parent, rigtype, conditions)
