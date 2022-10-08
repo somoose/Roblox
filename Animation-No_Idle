@@ -163,9 +163,9 @@ function stopAllAnimations()
 	local oldAnim = currentAnim
 
 	-- return to idle if finishing an emote
-	if (emoteNames[oldAnim] ~= nil and emoteNames[oldAnim] == false) then
-		oldAnim = "idle"
-	end
+	--if (emoteNames[oldAnim] ~= nil and emoteNames[oldAnim] == false) then
+	--	oldAnim = "idle"
+	--end
 
 	currentAnim = ""
 	currentAnimInstance = nil
@@ -193,9 +193,9 @@ function keyFrameReachedFunc(frameName)
 
 		local repeatAnim = currentAnim
 		-- return to idle if finishing an emote
-		if (emoteNames[repeatAnim] ~= nil and emoteNames[repeatAnim] == false) then
-			repeatAnim = "idle"
-		end
+		--if (emoteNames[repeatAnim] ~= nil and emoteNames[repeatAnim] == false) then
+		--	repeatAnim = "idle"
+		--end
 		
 		local animSpeed = currentAnimSpeed
 		playAnimation(repeatAnim, 0.0, Humanoid)
@@ -328,7 +328,7 @@ function onRunning(speed)
 		pose = "Running"
 	else
 		if emoteNames[currentAnim] == nil then
-			playAnimation("idle", 0.1, Humanoid)
+			--playAnimation("idle", 0.1, Humanoid)
 			pose = "Standing"
 		end
 	end
@@ -523,7 +523,7 @@ end)
 -- main program
 
 -- initialize to idle
-playAnimation("idle", 0.1, Humanoid)
+--playAnimation("idle", 0.1, Humanoid)
 pose = "Standing"
 
 while Figure.Parent ~= nil do
