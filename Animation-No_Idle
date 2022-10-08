@@ -15,6 +15,10 @@ local currentAnimKeyframeHandler = nil
 local currentAnimSpeed = 1.0
 local animTable = {}
 local animNames = { 
+	idle = 	{	
+				{ id = "http://www.roblox.com/asset/?id=180435571", weight = 0 },
+				{ id = "http://www.roblox.com/asset/?id=180435792", weight = 0 }
+			},
 	walk = 	{ 	
 				{ id = "http://www.roblox.com/asset/?id=180426354", weight = 10 } 
 			}, 
@@ -139,6 +143,17 @@ end
 script.ChildAdded:connect(scriptChildModified)
 script.ChildRemoved:connect(scriptChildModified)
 
+-- Clear any existing animation tracks
+-- Fixes issue with characters that are moved in and out of the Workspace accumulating tracks
+local animator = if Humanoid then Humanoid:FindFirstChildOfClass("Animator") else nil
+if animator then
+	local animTracks = animator:GetPlayingAnimationTracks()
+	for i,track in ipairs(animTracks) do
+		track:Stop(0)
+		track:Destroy()
+	end
+end
+
 
 for name, fileList in pairs(animNames) do 
 	configureAnimationSet(name, fileList)
@@ -163,9 +178,9 @@ function stopAllAnimations()
 	local oldAnim = currentAnim
 
 	-- return to idle if finishing an emote
-	--if (emoteNames[oldAnim] ~= nil and emoteNames[oldAnim] == false) then
-	--	oldAnim = "idle"
-	--end
+	if (emoteNames[oldAnim] ~= nil and emoteNames[oldAnim] == false) then
+		oldAnim = "idle"
+	end
 
 	currentAnim = ""
 	currentAnimInstance = nil
@@ -193,9 +208,9 @@ function keyFrameReachedFunc(frameName)
 
 		local repeatAnim = currentAnim
 		-- return to idle if finishing an emote
-		--if (emoteNames[repeatAnim] ~= nil and emoteNames[repeatAnim] == false) then
-		--	repeatAnim = "idle"
-		--end
+		if (emoteNames[repeatAnim] ~= nil and emoteNames[repeatAnim] == false) then
+			repeatAnim = "idle"
+		end
 		
 		local animSpeed = currentAnimSpeed
 		playAnimation(repeatAnim, 0.0, Humanoid)
@@ -328,7 +343,7 @@ function onRunning(speed)
 		pose = "Running"
 	else
 		if emoteNames[currentAnim] == nil then
-			--playAnimation("idle", 0.1, Humanoid)
+			playAnimation("idle", 0.1, Humanoid)
 			pose = "Standing"
 		end
 	end
@@ -523,7 +538,7 @@ end)
 -- main program
 
 -- initialize to idle
---playAnimation("idle", 0.1, Humanoid)
+playAnimation("idle", 0.1, Humanoid)
 pose = "Standing"
 
 while Figure.Parent ~= nil do
