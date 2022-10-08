@@ -17,7 +17,7 @@ local animTable = {}
 local animNames = { 
 	idle = 	{	
 				{ id = "http://www.roblox.com/asset/?id=180435571", weight = 9 },
-				{ id = "http://www.roblox.com/asset/?id=", weight = 1 }
+				{ id = "http://www.roblox.com/asset/?id=180435792", weight = 1 }
 			},
 	walk = 	{ 	
 				{ id = "http://www.roblox.com/asset/?id=180426354", weight = 10 } 
@@ -545,3 +545,5 @@ while Figure.Parent ~= nil do
 	local _, time = wait(0.1)
 	move(time)
 end
+
+
