@@ -25,8 +25,8 @@ local currentAnimSpeed = 1.0
 local animTable = {}
 local animNames = { 
 	idle = 	{	
-				{ id = "http://www.roblox.com/asset/?id=180435571", weight = 4 },
-				{ id = "http://www.roblox.com/asset/?id=180435792", weight = 2 }
+				{ id = "http://www.roblox.com/asset/?id=18043551", weight = 4 },
+				{ id = "http://www.roblox.com/asset/?id=18043592", weight = 2 }
 			},
 	walk = 	{ 	
 				{ id = "http://www.roblox.com/asset/?id=180426354", weight = 10 } 
