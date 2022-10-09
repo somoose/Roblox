@@ -333,6 +333,7 @@ function runendinganim (anim, t)
 			lerpjoint(neck.joint,neckc0,neck.C1,t)
 			task.wait(t)
 			lerpjoint(neck.joint,current,neck.C1,t)
+			task.wait(t)
 
 			character:SetAttribute("isendinganim", false)
 		elseif anim == "wave" then
@@ -351,6 +352,7 @@ function runendinganim (anim, t)
 			lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 			task.wait(t2)
 			lerpjoint(rightshoulder.joint,current0,current1,t2)
+			task.wait(t2)
 			character:SetAttribute("isendinganim", false)
 		elseif anim == "throw" then
 			local current0, current1 = rightshoulder.joint.C0, rightshoulder.joint.C1
@@ -377,6 +379,7 @@ function runendinganim (anim, t)
 			elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 30
 			task.wait(t2/2)
 			lerpjoint(rightshoulder.joint,current0,current1,t2)
+			task.wait(t2)
 			character:SetAttribute("isendinganim", false)
 		end
 	end
