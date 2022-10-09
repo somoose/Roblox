@@ -366,6 +366,8 @@ function runendinganim (anim, t)
 		
 		weld:Destroy()
 		
+		task.wait()
+		
 		elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 100
 		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
 	end
