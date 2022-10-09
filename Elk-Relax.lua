@@ -346,7 +346,7 @@ function runendinganim (anim, t)
 		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
 	elseif anim == "throw" then
 		local current = rightshoulder.joint.C0
-		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-30), 0, rad(-180))
+		local rightshoulderc0a = rightshoulder.C0 * angles(rad(-30), 0, rad(-180))
 		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-20), 0, rad(-260))
 		
 		local elk = estroelk(script)
@@ -361,7 +361,7 @@ function runendinganim (anim, t)
 		
 		print("moving joints")
 		
-		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
+		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
 		task.wait(t2)
 		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 		task.wait(t2)
@@ -373,7 +373,7 @@ function runendinganim (anim, t)
 		task.wait(0.1)
 		print("force applied")
 		
-		elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 100
+		elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 30
 		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
 	end
 end
