@@ -360,6 +360,7 @@ function runendinganim (anim, t)
 		local t2 = t/1.5
 		
 		print("moving joints")
+		print("moving to a")
 		
 		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
 		task.wait(t2)
