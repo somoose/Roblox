@@ -214,7 +214,7 @@ function runanim (anim,t)
 		character:SetAttribute("isanimated", true)
 
 		task.spawn(function()
-			task.wait(0.15)
+			task.wait(0.225)
 			character.Animate.Enabled = false
 		end)
 
@@ -403,7 +403,7 @@ end)
 -- weld remote
 weldremote.OnServerEvent:Connect(function(_, target, position)
 	task.spawn(function()
-		task.wait(0.15)
+		task.wait(0.225)
 		setmassless(character, true)
 		currentweld = weldcharacter(target, position)
 		character.Humanoid.PlatformStand = true
