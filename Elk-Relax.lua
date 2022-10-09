@@ -359,10 +359,14 @@ function runendinganim (anim, t)
 		
 		local t2 = t/1.5
 		
+		print("moving joints")
+		
 		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 		task.wait(t2)
 		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 		task.wait(t2)
+		
+		print("finished moving joints")
 		
 		weld:Destroy()
 		
