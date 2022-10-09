@@ -346,7 +346,7 @@ function runendinganim (anim, t)
 		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
 	elseif anim == "throw" then
 		local current = rightshoulder.joint.C0
-		local rightshoulderc0a = rightshoulder.C0 * angles(rad(-20), 0, rad(260))
+		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-30), 0, rad(-180))
 		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-20), 0, rad(-260))
 		
 		local elk = estroelk(script)
@@ -359,22 +359,21 @@ function runendinganim (anim, t)
 		
 		local t2 = t/1.5
 		
-		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
+		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 		task.wait(t2)
 		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
 		task.wait(t2)
 		
 		weld:Destroy()
 		
+		elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 100
 		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
 	end
 end
-
 --// remote handling \\
 -- anim remote
 local animdebounce = false
 local animdebouncetime = 0.4
-
 animremote.OnServerEvent:Connect(function(_, anim, ending)
 	if not animdebounce then animdebounce = true
 		if (character:GetAttribute"isanimated" and anim == "stop") or (not character:GetAttribute"isanimated" and anim ~= "stop") then
@@ -386,7 +385,6 @@ animremote.OnServerEvent:Connect(function(_, anim, ending)
 		if ending then
 			runendinganim(anim, animdebouncetime)
 		end
-		
 		task.wait(animdebouncetime) animdebounce = false
 	end
 end)
