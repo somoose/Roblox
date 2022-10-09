@@ -321,61 +321,61 @@ function runanim (anim,t)
 end
 
 function runendinganim (anim, t)
-	if anim == "nod" then
-		local current = neck.joint.C0
-		local neckc0 = current * angles(rad(15), 0, 0)
+	if anim ~= "" and not character:GetAttribute"isendinganim" then
+		character:SetAttribute("isendinganim", true)
+		if anim == "nod" then
+			local current = neck.joint.C0
+			local neckc0 = current * angles(rad(15), 0, 0)
 
-		lerpjoint(neck.joint,neckc0,neck.C1,t)
-		task.wait(t)
-		lerpjoint(neck.joint,current,neck.C1,t)
-	elseif anim == "wave" then
-		local current = rightshoulder.joint.C0
-		local rightshoulderc0a = rightshoulder.C0 * angles(rad(40), 0, rad(-185))
-		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-10), 0, rad(-185))
-		
-		local t2 = t/1.5
-		
-		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
-		task.wait(t2)
-		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
-		task.wait(t2)
-		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
-		task.wait(t2)
-		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
-		task.wait(t2)
-		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
-	elseif anim == "throw" then
-		local current = rightshoulder.joint.C0
-		local rightshoulderc0a = rightshoulder.C0 * angles(rad(-30), 0, rad(-180))
-		local rightshoulderc0b = rightshoulder.C0 * angles(rad(-20), 0, rad(-260))
-		
-		local elk = estroelk(script)
-		
-		local weld = Instance.new"Weld"
-		weld.Part0 = elk
-		weld.Part1 = character["Right Arm"]
-		weld.C0 = new(0, character["Right Arm"].Size.Y/2, 0)
-		weld.Parent = elk
-		
-		local t2 = t/1.5
-		
-		print("moving joints")
-		print("moving to a")
-		
-		lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
-		task.wait(t2)
-		lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
-		task.wait(t2)
-		
-		print("finished moving joints")
-		
-		weld:Destroy()
-		
-		task.wait(0.1)
-		print("force applied")
-		
-		elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 30
-		lerpjoint(rightshoulder.joint,current,rightshoulder.C1,t2)
+			lerpjoint(neck.joint,neckc0,neck.C1,t)
+			task.wait(t)
+			lerpjoint(neck.joint,current,neck.C1,t)
+
+			character:SetAttribute("isendinganim", false)
+		elseif anim == "wave" then
+			local current0, current1 = rightshoulder.joint.C0, rightshoulder.joint.C1
+			local rightshoulderc0a = rightshoulder.C0 * angles(rad(40), 0, rad(-185))
+			local rightshoulderc0b = rightshoulder.C0 * angles(rad(-10), 0, rad(-185))
+
+			local t2 = t/1.5
+
+			lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
+			task.wait(t2)
+			lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
+			task.wait(t2)
+			lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
+			task.wait(t2)
+			lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
+			task.wait(t2)
+			lerpjoint(rightshoulder.joint,current0,current1,t2)
+			character:SetAttribute("isendinganim", false)
+		elseif anim == "throw" then
+			local current0, current1 = rightshoulder.joint.C0, rightshoulder.joint.C1
+			local rightshoulderc0a = rightshoulder.C0 * angles(rad(-30), 0, rad(-160))
+			local rightshoulderc0b = rightshoulder.C0 * angles(rad(-20), 0, rad(-260))
+
+			local elk = estroelk(script)
+
+			local weld = Instance.new"Weld"
+			weld.Part0 = elk
+			weld.Part1 = character["Right Arm"]
+			weld.C0 = new(0, character["Right Arm"].Size.Y/2, 0)
+			weld.Parent = elk
+
+			local t2 = t/1.5
+
+			lerpjoint(rightshoulder.joint,rightshoulderc0a,rightshoulder.C1,t2)
+			task.wait(t2)
+			lerpjoint(rightshoulder.joint,rightshoulderc0b,rightshoulder.C1,t2)
+			task.wait(t2/2)
+
+			weld:Destroy()
+
+			elk.AssemblyLinearVelocity = character.HumanoidRootPart.CFrame.LookVector * 30
+			task.wait(t2/2)
+			lerpjoint(rightshoulder.joint,current0,current1,t2)
+			character:SetAttribute("isendinganim", false)
+		end
 	end
 end
 --// remote handling \\
