@@ -24,7 +24,7 @@ warn([[
 	Credit to @ArchUsagi, animations were based off his. <3
 	
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-	animations: keybinds
+	animations:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		q: undo
 		e: sit
@@ -33,10 +33,13 @@ warn([[
 		g: lay front
 		t: split
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-	actions: keybinds, based off mouse
+	actions:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		x: piggyback
 		c: piggyfront
+		v: nod
+		b: wave
+		n: throw estroelk
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 	Have fun!
