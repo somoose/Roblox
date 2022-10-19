@@ -9,6 +9,7 @@ local whitelistkey = "wl"
 local lockkey = "lock"
 local unlockkey = "unlock"
 local passkey = "pass"
+local rgbkey = "rgb"
 --\\---------------//
 
 warn([[
@@ -38,15 +39,26 @@ function gettarget (text)
 	end
 end
 
-function removepadding (a)
+function removepadding (a, f)
+	f = f or function (v) return v end
 	local pattern = " *(.*)"
 	
-	if typeof(a) == "string" then
-		a = a:match(pattern):reverse():match(pattern):reverse()
-	elseif typeof(a) == "table" then
+	local t = typeof(a)
+
+	if t == "string" then
+		a = f(a:match(pattern):reverse():match(pattern):reverse())
+	elseif t == "table" then
 		for i, v in pairs(a) do
-			a[i] = v:match(pattern):reverse():match(pattern):reverse()
+			local tv = typeof(v)
+			
+			if tv ~= "string" then
+				error("expected string, got " .. tv)
+			else
+				a[i] = f(v:match(pattern):reverse():match(pattern):reverse())
+			end
 		end
+	else
+		error("expected string or table, got " .. t)
 	end
 
 	return a
@@ -125,6 +137,11 @@ function scaleorb (scale)
 	):Play()
 end
 
+function colororb (r, g, b)
+	orbcolor = Color3.fromRGB(r, g, b)
+	currentorb.Color = orbcolor
+end
+
 function castorb (scale)
 	scale = scale or currentscale
 
@@ -187,11 +204,11 @@ function castorb (scale)
 				scaleorb(currentscale)
 			elseif message:sub(1, #blacklistkey) == blacklistkey then
 				local list = message:sub(#blacklistkey+2, #message)
-				
+
 				if removepadding(list):sub(1, 1) == "^" then
 					local exlist = list:sub(3, #list)
 					local exclusions = convertlisttotargets(removepadding(exlist:split","))
-					
+
 					for _, player in pairs(players:GetPlayers()) do
 						if not table.find(exclusions, player) then
 							addtoblacklist(player)
@@ -207,11 +224,11 @@ function castorb (scale)
 			elseif message:sub(1, #whitelistkey) == whitelistkey then
 				local list = message:sub(#whitelistkey+2, #message)
 				local whitelist = convertlisttotargets(removepadding(list:split","))
-				
+
 				if removepadding(list):sub(1, 1) == "^" then
 					local exlist = list:sub(3, #list)
 					local exclusions = convertlisttotargets(removepadding(exlist:split","))
-					
+
 					for _, player in pairs(players:GetPlayers()) do
 						if not table.find(exclusions, player) then
 							local i = table.find(blacklist, player)
@@ -237,6 +254,11 @@ function castorb (scale)
 			elseif message:sub(1, #passkey) == passkey then
 				local holdername = message:sub(#passkey+2, #message)
 				currentholder = gettarget(holdername) or currentholder
+			elseif message:sub(1, #rgbkey) == rgbkey then
+				local rgbstring = message:sub(#rgbkey+2, #message)
+				local rgb = removepadding(rgbstring:split",", tonumber)
+				
+				colororb(rgb[1], rgb[2], rgb[3])
 			end
 		end
 	end
