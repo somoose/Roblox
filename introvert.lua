@@ -14,19 +14,18 @@ local rgbkey = "rgb"
 
 warn([[
 
-commands include:
+commands:
 	>size number
-	>bl player, player ... 
-		-- when using this command, say ^ to blacklist everyone,
-		   writing a players name after "^" excludes them.
-	>wl player, player ...
-		- same note for blacklist/bl
+	
+	>bl player, player, ...
+	>bl ^ excluded1, excluded2, ... -- blacklists everyone except excluded
+	
+	>wl player, player, ...
+	>wl ^ excluded1, excluded2, ... -- whitelists everyone except excluded
+	
 	>lock
-		-locks the orb into place.
 	>unlock
-		-makes the orb continue following it's current target.
 	>pass player
-		-passes the orb to another player so the orb follows them.
 ]])
 
 function gettarget (text)
@@ -42,7 +41,7 @@ end
 function removepadding (a, f)
 	f = f or function (v) return v end
 	local pattern = " *(.*)"
-	
+
 	local t = typeof(a)
 
 	if t == "string" then
@@ -50,7 +49,7 @@ function removepadding (a, f)
 	elseif t == "table" then
 		for i, v in pairs(a) do
 			local tv = typeof(v)
-			
+
 			if tv ~= "string" then
 				error("expected string, got " .. tv)
 			else
@@ -96,6 +95,8 @@ end
 forcefield()
 
 --// vi variables \\
+local addedconnection
+
 local orbcolor = BrickColor.new"Gold".Color
 local currentscale = 25
 
@@ -214,6 +215,12 @@ function castorb (scale)
 							addtoblacklist(player)
 						end
 					end
+				elseif removepadding(list):sub(1, 1) == "*" then
+					addedconnection = players.PlayerAdded:Connect(function(added)
+						if not table.find(blacklist, added) and added ~= player then
+							addtoblacklist(added)
+						end 
+					end)
 				else
 					local newblacklist = convertlisttotargets(removepadding(list:split","))
 
@@ -238,6 +245,10 @@ function castorb (scale)
 							end
 						end
 					end
+				elseif removepadding(list):sub(1, 1) == "*" then
+					if addedconnection then
+						addedconnection:Disconnect()
+					end
 				else
 					for i, v in pairs(whitelist) do
 						local newi = table.find(blacklist, v)
@@ -257,7 +268,7 @@ function castorb (scale)
 			elseif message:sub(1, #rgbkey) == rgbkey then
 				local rgbstring = message:sub(#rgbkey+2, #message)
 				local rgb = removepadding(rgbstring:split",", tonumber)
-				
+
 				colororb(rgb[1], rgb[2], rgb[3])
 			end
 		end
