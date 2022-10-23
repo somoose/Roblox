@@ -269,8 +269,10 @@ player.Chatted:Connect(function(message)
 			log(commands)
 		elseif message:lower() == "lock" then
 			locked = true
+			log("locked")
 		elseif message:lower() == "unlock" then
 			locked = false
+			log("unlocked")
 		end
 	end
 end)
