@@ -71,7 +71,8 @@ function autoscroll (textbox)
 	local fontsize = textbox.Font
 	local boxsize = textbox.AbsoluteSize
 
-	local height = textservice:GetTextSize("", textsize, fontsize, boxsize).Y
+	local size = textservice:GetTextSize("", textsize, fontsize, boxsize)
+	local height = size.Y
 	local linebounds = math.round(boxsize.Y / height)
 
 	textbox:GetPropertyChangedSignal"Text":Connect(function()
@@ -100,6 +101,11 @@ screen.CanCollide = false
 screen.Anchored = true
 screen.CanCollide = false
 screen.Parent = script
+
+local screenvalue = character():FindFirstChild"ScreenValue" or Instance.new"ObjectValue"
+screenvalue.Name = "ScreenValue"
+screenvalue.Value = screen
+screenvalue.Parent = character()
 
 local sound = Instance.new"Sound"
 sound.Name = "ScreenSpeaker"
@@ -134,6 +140,10 @@ local corner = Instance.new"UICorner"
 corner.CornerRadius = UDim.new(0, 7.5)
 corner.Parent = upperbox
 
+local visualfunction = Instance.new"RemoteFunction"
+visualfunction.Name = "VisualiserRemote"
+visualfunction.Parent = screen
+
 function loadupperbox (name, artist, timeposition, timelength)
 	upperbox.Text = 
 		"<font size=\"60\">"..name..
@@ -156,12 +166,16 @@ autoscroll(middlebox)
 
 local lowerbox = middlebox:Clone()
 lowerbox.Text = ""
-lowerbox.RichText = false
 lowerbox.AnchorPoint = Vector2.new(0, 1)
 lowerbox.Position = UDim2.fromScale(0, 1)
 lowerbox.Parent = surface
 
-autoscroll(lowerbox)
+function loadlowerbox (loudness)
+	local max = 1000
+	lowerbox.Text = "<font size=\"30\">PlaybackLoudness:</font>\n	" .. bar(124, max, loudness)
+end
+
+loadlowerbox(0)
 
 function log (a, b)
 	local output = middlebox.Text
@@ -273,6 +287,9 @@ player.Chatted:Connect(function(message)
 			task.spawn(function()
 				while sound.Playing and sound.SoundId == currentasset do task.wait()
 					loadupperbox(currentdata.name, currentdata.artist, sound.TimePosition, sound.TimeLength)
+					task.spawn(function()
+						loadlowerbox(visualfunction:InvokeClient(player))
+					end)
 				end
 			end)
 		elseif message:sub(1, 5):lower() == "pause" then
@@ -332,3 +349,15 @@ player.Chatted:Connect(function(message)
 		end
 	end
 end)
+
+NLS([[
+local player = owner
+local character = player.Character
+local screen = character:WaitForChild"ScreenValue".Value
+local speaker = screen:WaitForChild"ScreenSpeaker"
+local visualfunction = screen:WaitForChild"VisualiserRemote"
+
+visualfunction.OnClientInvoke = function (client)
+	return speaker.PlaybackLoudness
+end
+]], player.PlayerGui)
