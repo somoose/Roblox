@@ -1,5 +1,5 @@
 if script.Parent.Humanoid.RigType == Enum.HumanoidRigType.R6 then
-    local Figure = script.Parent
+local Figure = script.Parent
 local Torso = Figure:WaitForChild("Torso")
 local RightShoulder = Torso:WaitForChild("Right Shoulder")
 local LeftShoulder = Torso:WaitForChild("Left Shoulder")
