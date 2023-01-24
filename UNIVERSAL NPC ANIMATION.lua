@@ -8,7 +8,7 @@ local LeftHip = Torso:WaitForChild("Left Hip")
 local Neck = Torso:WaitForChild("Neck")
 local Humanoid = Figure:WaitForChild("Humanoid")
 local pose = "Standing"
-
+	
 local currentAnim = ""
 local currentAnimInstance = nil
 local currentAnimTrack = nil
