@@ -2,7 +2,7 @@ local HttpService = game:GetService"HttpService"
 local Players = game:GetService"Players"
 
 local BaseAsset = "rbxassetid://"
-local Anim = "https://raw.githubusercontent.com/redpawed/Public-Links/main/NPC-Animation"
+local Anim = "https://raw.githubusercontent.com/ccboyd/Roblox/master/UNIVERSAL%20NPC%20ANIMATION.lua"
 
 local LocalPlayer = owner
 local LocalCharacter = LocalPlayer.Character
