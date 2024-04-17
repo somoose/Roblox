@@ -10,7 +10,7 @@ local Functions = {}
 local MAINPREFIX = ":"
 local MAINSEPARATOR = " "
 local Commands = {
-	Code = { -- The index is the code of the command i.e. :code
+	Command = { -- The index is the code of the command i.e. :code
 		Prefix = MAINPREFIX,
 		Separator = MAINSEPARATOR,
 
