@@ -1,10 +1,10 @@
 local HttpService = game:GetService("HttpService")
 
 local Furniture = { -- Make sure to return the final model.
-	Bench = "https://lsb-furniture.glitch.me/serialised/Bench.lua",
-	Chair = "https://lsb-furniture.glitch.me/serialised/Chair.lua",
-	Stool = "https://lsb-furniture.glitch.me/serialised/Stool.lua",
-	Table = "https://lsb-furniture.glitch.me/serialised/Table.lua"
+	Bench = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/bench.lua",
+	Chair = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/chair.lua",
+	Stool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/stool.lua",
+	Table = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/table.lua"
 }
 
 local args = {...}
