@@ -8,7 +8,7 @@ local Furniture = { -- Make sure to return the final model.
 }
 
 local args = {...}
-if args[1]:lower() == "get" then for name,_ in pairs(Furniture) do print(name) end return end
+if args[1] then if args[1]:lower() == "get" then for name,_ in pairs(Furniture) do print(name) end return end end
 local func
 
 local amount = tonumber(args[2]) or 1
@@ -21,7 +21,6 @@ for name, link in pairs(Furniture) do
 end
 
 local mainmodel = func()
---mainmodel:FindFirstChildOfClass("Part").Anchored = true
 mainmodel:ScaleTo(scale)
 mainmodel.Parent = workspace
 local modelsize = mainmodel:GetExtentsSize()
