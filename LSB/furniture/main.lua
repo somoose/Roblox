@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 
 local Furniture = { -- Make sure to return the final model.
 	Bench = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/bench.lua",
-	Chair = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/chair.lua,
+	Chair = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/chair.lua",
 	Stool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/stool.lua",
 	Table = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/table.lua",
 	Jenga = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furniture/serialised/jenga.lua"
