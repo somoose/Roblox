@@ -22,6 +22,10 @@ GrabRemote.Name = "GrabRemote"
 local CheckOwnerRemote = Instance.new("RemoteEvent", owner.PlayerGui)
 CheckOwnerRemote.Name = "CheckOwnerRemote"
 
+local GetServerScriptRemote = Instance.new("RemoteFunction", owner.PlayerGui)
+GetServerScriptRemote.Name = "GetServerScriptRemote"
+GetServerScriptRemote.OnServerInvoke = function () return script end
+
 CheckOwnerRemote.OnServerEvent:Connect(function(_, Target)
 	local NetworkOwner = Target:GetNetworkOwner()
 	
@@ -31,9 +35,6 @@ end)
 local PreviousItem = nil
 local PreviousNetworkOwners = {}
 local PreviousProperties = {}
-
-local Contacters = {} -- All the BaseParts in contact with BaseParts from Item.
-local IsContact = false -- Tells when any part of Item is in contact with a BasePart(s).
 
 function CreateUID ()
 	return tick() .. "|" .. math.random(100000000, 999999999)
@@ -56,10 +57,9 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints)
 			}
 			
 			if Item.Anchored then Item.Anchored = false end
-			
-			Item.CanCollide = CanCollide
+			if Item.CanCollide ~= CanCollide then Item.CanCollide = CanCollide end
 			if Item.Transparency < Transparency then Item.Transparency = Transparency end
-			Item.Massless = true
+			if not Item.Massless then Item.Massless = true end
 			
 			if BreakJoints then
 				Item.CanCollide = true
@@ -76,7 +76,7 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints)
 			
 			for _, Part in pairs(Item:GetDescendants()) do
 				if Part:IsA("BasePart") or Part:IsA("Part") then table.insert(Parts, Part)
-					-- Store CanCollide and Transparency in PreviousProperties
+					-- Store Part properties in PreviousProperties
 					local UID = CreateUID()
 					CollectionService:AddTag(Part, UID)
 					
@@ -87,9 +87,9 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints)
 					}
 					
 					if Part.Anchored then Part.Anchored = false end
-					Part.CanCollide = CanCollide
+					if Part.CanCollide ~= CanCollide then Part.CanCollide = CanCollide end
 					if Part.Transparency < Transparency then Part.Transparency = Transparency end
-					Part.Massless = true
+					if not Part.Massless then Part.Massless = true end
 				elseif Part:IsA("Humanoid") then
 					Part.Sit = true
 				end
@@ -190,37 +190,52 @@ local Mouse = owner:GetMouse()
 -- Remotes
 local GrabRemote = PlayerGui:WaitForChild("GrabRemote") -- Used to pick up an item.
 local CheckOwnerRemote = PlayerGui:WaitForChild("CheckOwnerRemote") -- Used to check the NetworkOwner of Mouse.Target
+local GetServerScriptRemote = PlayerGui:WaitForChild("GetServerScriptRemote")
 
--- WHY OH WHY DOES GITHUB FORCE YOU TO USE SIZE 8 INDENTS MY NEATLY ORGANISED CODE IS RUINED
+local ServerScript = GetServerScriptRemote:InvokeServer()
+
 
 -- // Logical Variables ============================================================================================================== \\
 -- 		Target Variables
 local CURRENTITEM = nil -- Part or Model that is currently being held. 															(INSTANCE)
 local TARGET = nil -- Current target being interacted with. (can be a Model or a Part) 											(INSTANCE)
 local FIRSTINPUTTARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
-local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.								(STRING)
 local MUSTBEUNLOCKED = false -- If true, you can only pick up unlocked items.													(BOOLEAN)
 local MUSTBEINRANGE = true -- If true, you can only pick up items less than MAXGRABDISTANCE away.								(BOOLEAN)
+local TOUCHING = {} -- The parts of CURRENTITEM and the parts they're in contact with.											(ARRAY)
+local CANBEPLACED = true -- False when the held item is in contact with parts that the item cannot be placed in.				(BOOLEAN)
+
+local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.								(STRING)
+
+local FilterDescendantsInstances = {owner.Character} -- The instances that the hold distance raycast ignores.					(ARRAY)
+local RAYCASTPARAMS = RaycastParams.new() --																					(RAYCASTPARAMS)
+RAYCASTPARAMS.FilterType = Enum.RaycastFilterType.Blacklist
+
 FUNCTIONS.ReturnPrimaryPart = nil -- Used to get the PrimaryPart of a Model.													(FUNCTION)
 FUNCTIONS.UpdateTarget = nil -- Updates the TARGET variable.																	(FUNCTION)
 FUNCTIONS.UpdateRaycastHoldDistance = nil --																					(FUNCTION)
 FUNCTIONS.FitsCriteria = nil --																									(FUNCTION)
 FUNCTIONS.EditFilterDescendantsInstances = nil --																				(FUNCTION)
 FUNCTIONS.ParentBodyMovers = nil --																								(FUNCTION)
-local FilterDescendantsInstances = {owner.Character} -- The instances that the hold distance raycast ignores.					(ARRAY)
-local RAYCASTPARAMS = RaycastParams.new() --																					(RAYCASTPARAMS)
-RAYCASTPARAMS.FilterType = Enum.RaycastFilterType.Blacklist
+
+-- 		Event Functions
+FUNCTIONS.ON_PICKUP = nil -- The function run when an item is picked up.														(FUNCTION)
+FUNCTIONS.HOLDING = nil -- The function run while an item is being held.														(FUNCTION)
+FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.															(FUNCTION)
 
 -- 		Item Manipulation Variables
 local RAYCASTHOLDDISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
 local MAXGRABDISTANCE = 15 -- The max distance away from which an item can be picked up. 										(NUMBER)
 local HOLDDISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
 local HOLDDISTANCEINCREMENT = 0.5 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
-local MAXHOLDDISTANCE = 25 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
+local MAXHOLDDISTANCE = math.huge -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
 local MINIMUMHOLDDISTANCE = 2 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
+local ROTATIONINCREMENT15 = math.rad(15) --																						(NUMBER)
+local ROTATIONINCREMENT45 = math.rad(45) --																						(NUMBER)
+local ROTATIONINCREMENT90 = math.rad(90) --																						(NUMBER)
 local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
-local ORIENTATION = {X = 0, Y = 0, Z = 0} -- The orientation of the item being held. 											(ARRAY)
-local ORIENTATIONINCREMENT = math.rad(45) -- The increment that the Orientation value increases at. 							(NUMBER)
+local ORIENTATION = CFrame.new() -- The orientation of the item being held. 													(ARRAY)
+local ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- The increment that the Orientation value increases at. 						(NUMBER)
 
 --		Input Variables
 local PICKUP_INPUT = Enum.KeyCode.E --																							(ENUM)
@@ -238,7 +253,7 @@ local PICKUP_INPUTOBJECT = {UserInputType = Enum.UserInputType.Keyboard, KeyCode
 -- 		GUI Variables
 local EHOLD = 0.5 -- The amount of time in seconds it takes GUI.Progress.Value to reach 360. 									(NUMBER)
 local ETWEEN = nil -- The tween used to lerp the GUI.PROGRESS value. Updates with a new Tween on every E InputBegan. 			(INSTANCE)
-local CARETSPEED = 0.35 -- The speed GUI.GrabCaret lerps at. 																	(NUMBER)
+local CARETSPEED = 0.45 -- The speed GUI.GrabCaret lerps at. 																	(NUMBER)
 
 --		Audios
 local ScrollWheelClickSound = Instance.new("Sound", owner.PlayerGui) --															(SOUND)
@@ -253,11 +268,27 @@ RotateSound.SoundId = "rbxassetid://9114067301"
 RotateSound.PlaybackSpeed = 1.5
 RotateSound.Volume = 0.75
 
--- 		Event Functions
-FUNCTIONS.ON_PICKUP = nil -- The function run when an item is picked up.														(FUNCTION)
-FUNCTIONS.HOLDING = nil -- The function run while an item is being held.														(FUNCTION)
-FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.															(FUNCTION)
+local HighlightColorWhite = {
+	FillColor = Color3.fromRGB(100, 100, 100),
+	OutlineColor = Color3.fromRGB(255, 255, 255)
+}
+local HighlightColorRed = {
+	FillColor = Color3.fromRGB(255, 0, 0),
+	OutlineColor = Color3.fromRGB(200, 0, 0)
+}
 -- \\ =============================================================================================================================== //
+
+local Highlight = Instance.new("Highlight", ServerScript)
+Highlight.FillTransparency = 0.8
+Highlight.OutlineTransparency = 0.25
+Highlight.FillColor = HighlightColorWhite.FillColor
+Highlight.OutlineColor = HighlightColorWhite.OutlineColor
+
+local SelectionBox = Instance.new("SelectionBox", owner.Character)
+SelectionBox.LineThickness = 0.01
+SelectionBox.Transparency = 0.75
+SelectionBox.Color3 = Color3.fromRGB(0, 200, 0)
+SelectionBox.Transparency = 0.5
 
 local Attachment0 = Instance.new("Attachment")
 local AlignPosition = Instance.new("AlignPosition")
@@ -274,16 +305,6 @@ AlignOrientation.Attachment0 = Attachment0
 AlignOrientation.RigidityEnabled = true
 AlignOrientation.MaxTorque = Vector3.one * math.huge
 AlignOrientation.Responsiveness = Vector3.one * math.huge
-
-local Highlight = Instance.new("Highlight")
-Highlight.FillTransparency = 0.8
-Highlight.OutlineTransparency = 0.25
-Highlight.FillColor = Color3.fromRGB(100, 100, 100)
-Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-
-GrabRemote.OnClientEvent:Connect(function()
-	FUNCTIONS.ParentBodyMovers(nil)
-end)
 
 FUNCTIONS.ParentBodyMovers = function (Parent)
 	Attachment0.Parent = Parent
@@ -484,6 +505,64 @@ GUI.UpdateProgressBar() -- Ensure that the progress has been updated to 0.
 -- \\ ======================================================================== //
 
 
+-- // Event Functions \\
+
+FUNCTIONS.ON_PICKUP = function ()
+	CURRENTITEM = TARGET
+	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENTITEM)
+	
+	GrabRemote:FireServer(CURRENTITEM, ALTDOWN)
+	
+	repeat task.wait() until CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	
+	if CURRENTITEM:IsA("BasePart") then
+		FUNCTIONS.ParentBodyMovers(CURRENTITEM)
+	elseif CURRENTITEM:IsA("Model") then
+		FUNCTIONS.ParentBodyMovers(FUNCTIONS.ReturnPrimaryPart(CURRENTITEM))
+	end
+end
+
+FUNCTIONS.HOLDING = function ()
+	local Origin = Camera.CFrame.Position
+	local Direction = Camera.CFrame.LookVector
+	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
+	
+	AlignPosition.Position = Origin + Direction * Distance
+	AlignOrientation.CFrame = ORIENTATION
+	
+	if CURRENTITEM:IsA("BasePart") then
+		local TouchingParts = workspace:GetPartsInPart(CURRENTITEM)
+		local NewTouchingParts = {}
+		
+		for i, Part in pairs(TouchingParts) do
+			if Part:IsDescendantOf(owner.Character) then
+				table.remove(TouchingParts, table.find(TouchingParts, Part))
+			end
+		end
+		
+		if #TouchingParts > 0 then -- CURRENTITEM is colliding.
+			SelectionBox.Adornee = CURRENTITEM
+		else
+			SelectionBox.Adornee = nil
+		end
+	end
+end
+
+FUNCTIONS.ON_DROP = function ()
+	SelectionBox.Adornee = nil
+	GrabRemote:FireServer()
+	
+	local startwait = tick()
+	
+	repeat task.wait() if tick() - startwait > 2 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	
+	FUNCTIONS.ParentBodyMovers(nil)
+	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
+	
+	CURRENTITEM = nil
+end
+
+
 -- // Input Handling ============================================================================================ \\
 GUI.InputBegan = function (Input, GPE)
 	if not GPE then
@@ -493,22 +572,11 @@ GUI.InputBegan = function (Input, GPE)
 				
 				if CURRENTITEM then
 				
-				
 					-- //////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENTITEM. ||||||||||||||||||||||||||||||||||
 					-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\////////////////////////////////////////////////
 					
-					GrabRemote:FireServer()
-					
-					local startwait = tick()
-					
-					repeat task.wait() if tick() - startwait > 2 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
-					
-					FUNCTIONS.ParentBodyMovers(nil)
-					FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
-					
-					CURRENTITEM = nil
-					
+					FUNCTIONS.ON_DROP()
 					
 				else
 					if TARGET then
@@ -525,8 +593,8 @@ GUI.InputBegan = function (Input, GPE)
 			elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
 				ALTDOWN = true
 				
-				Highlight.OutlineColor = Color3.fromRGB(200, 0, 0)
-				Highlight.FillColor = Color3.fromRGB(255, 0, 0)
+				Highlight.FillColor = HighlightColorRed.FillColor
+				Highlight.OutlineColor = HighlightColorRed.OutlineColor
 			elseif Input.KeyCode == INCREASEDISTANCE_INPUT and CURRENTITEM then
 				HOLDDISTANCE = math.clamp(HOLDDISTANCE + HOLDDISTANCEINCREMENT, MINIMUMHOLDDISTANCE, MAXHOLDDISTANCE)
 			elseif Input.KeyCode == DECREASEDISTANCE_INPUT and CURRENTITEM then
@@ -541,8 +609,18 @@ GUI.InputBegan = function (Input, GPE)
 				AXIS = "Z"
 			elseif Input.KeyCode == ROTATE_INPUT then
 				RotateSound:Play()
-				if SHIFTDOWN and CTRLDOWN then ORIENTATION = {X=0, Y=0, Z=0} return end
-				ORIENTATION[AXIS] = ORIENTATION[AXIS] + ORIENTATIONINCREMENT
+				if SHIFTDOWN and CTRLDOWN then
+					ORIENTATION = CFrame.new()
+					return
+				end
+				
+				if AXIS == "X" then
+					ORIENTATION = ORIENTATION * CFrame.Angles(ORIENTATIONINCREMENT, 0, 0)
+				elseif AXIS == "Y" then
+					ORIENTATION = ORIENTATION * CFrame.Angles(0, ORIENTATIONINCREMENT, 0)
+				elseif AXIS == "Z" then
+					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATIONINCREMENT)
+				end
 			elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
 				if owner.CameraMode == Enum.CameraMode.Classic then
 					owner.CameraMode = Enum.CameraMode.LockFirstPerson
@@ -590,8 +668,8 @@ GUI.InputEnded = function (Input, GPE)
 			elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
 				ALTDOWN = false
 				
-				Highlight.FillColor = Color3.fromRGB(100, 100, 100)
-				Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+				Highlight.FillColor = HighlightColorWhite.FillColor
+				Highlight.OutlineColor = HighlightColorWhite.OutlineColor
 			end
 		end
 	end
@@ -602,21 +680,23 @@ UserInputService.InputChanged:Connect(GUI.InputChanged)
 UserInputService.InputEnded:Connect(GUI.InputEnded)
 -- \\ =========================================================================================================== //
 
--- Main Loop
+
+
+-- // Main Loop \\
 RunService.PostSimulation:Connect(function(Delta)
 	-- Update the TARGET variable.
 	FUNCTIONS.UpdateTarget()
-	Highlight.Parent = TARGET
+	Highlight.Adornee = TARGET
 	FUNCTIONS.UpdateRaycastHoldDistance()
 	
 	if SHIFTDOWN and not CTRLDOWN then
-		ORIENTATIONINCREMENT = math.rad(90)
+		ORIENTATIONINCREMENT = ROTATIONINCREMENT90
 	elseif CTRLDOWN and not SHIFTDOWN then
-		ORIENTATIONINCREMENT = math.rad(15)
+		ORIENTATIONINCREMENT = ROTATIONINCREMENT15
 	elseif not SHIFTDOWN and not CTRLDOWN then
-		ORIENTATIONINCREMENT = math.rad(45)
+		ORIENTATIONINCREMENT = ROTATIONINCREMENT45
 	elseif SHIFTDOWN and CTRLDOWN then
-		ORIENTATIONINCREMENT = math.rad(45) -- not used.
+		ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- not used.
 	end
 	
 	-- Update GUI GrabCaret and CircularProgressBar.
@@ -624,16 +704,11 @@ RunService.PostSimulation:Connect(function(Delta)
 		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.fromScale(0.5, 0.5), CARETSPEED)
 		if GUI.CircularProgressBar.Visible then GUI.CircularProgressBar.Visible = false end
 		
-		
 		-- /////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 		-- ||||||||||||||||||||||||||||| User is holding CURRENTITEM. |||||||||||||||||||||||||||||
 		-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
 		
-		local TargetPosition = Camera.CFrame.Position + Camera.CFrame.LookVector * math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
-		
-		AlignPosition.Position = TargetPosition
-		AlignOrientation.CFrame = CFrame.fromEulerAngles(ORIENTATION.X, ORIENTATION.Y, ORIENTATION.Z)
-		
+		FUNCTIONS.HOLDING()
 		
 	else
 		if not GUI.GrabCaret.Visible then GUI.GrabCaret.Visible = true end
@@ -656,24 +731,11 @@ RunService.PostSimulation:Connect(function(Delta)
 				if not CURRENTITEM then
 					if GUI.PROGRESS.Value > 359 then
 					
-					
 						-- ///////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 						-- |||||||||||||||||||||| User is picking up TARGET. Despite being in a RunService loop, this only runs once. ||||||||||||||||||||||
 						-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////////////////////
 						
-						CURRENTITEM = TARGET
-						FUNCTIONS.EditFilterDescendantsInstances(true, CURRENTITEM)
-						
-						GrabRemote:FireServer(CURRENTITEM, ALTDOWN)
-						
-						repeat task.wait() until CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
-						
-						if CURRENTITEM:IsA("BasePart") then
-							FUNCTIONS.ParentBodyMovers(CURRENTITEM)
-						elseif CURRENTITEM:IsA("Model") then
-							FUNCTIONS.ParentBodyMovers(FUNCTIONS.ReturnPrimaryPart(CURRENTITEM))
-						end
-						
+						FUNCTIONS.ON_PICKUP()
 						
 					end
 				end
