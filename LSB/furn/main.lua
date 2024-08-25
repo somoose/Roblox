@@ -21,11 +21,12 @@ local LSBARGS = {...} -- r/arg1/arg2..
 
 local LoadedModels = {} -- Stores models which have already been loaded to prevent overuse of HttpService.
 
-function SpawnFurniture (Index, Amount, Scale) -- Returns a new piece of furniture matching Index, accepts truncated indices.
+function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new piece of furniture matching Index, accepts truncated indices.
 	-- This function automatically positions the furniture in front of the owner and parents them to workspace.
 	Index = Index or Keys[math.random(#Keys)]
 	Amount = tonumber(Amount) or 1
 	Scale = tonumber(Scale) or 1
+	SeatDisabled == "true" and true or false
 	
 	for Name, Link in pairs(Furniture) do
 		if Name:lower():sub(1, #Index) == Index:lower() then
@@ -59,6 +60,12 @@ function SpawnFurniture (Index, Amount, Scale) -- Returns a new piece of furnitu
 							Part.DragStart:Connect(function(Player)
 								Part.Parent:SetNetworkOwner(Player)
 							end)
+						end
+						
+						if SeatDisabled then
+							if Part:IsA("Seat") then
+								Part.Enabled = false
+							end
 						end
 					end
 				end
