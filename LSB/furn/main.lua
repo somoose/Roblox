@@ -26,7 +26,7 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 	Index = Index or Keys[math.random(#Keys)]
 	Amount = tonumber(Amount) or 1
 	Scale = tonumber(Scale) or 1
-	SeatDisabled == "true" and true or false
+	SeatDisabled = SeatDisabled == "true" and true or false
 	
 	for Name, Link in pairs(Furniture) do
 		if Name:lower():sub(1, #Index) == Index:lower() then
