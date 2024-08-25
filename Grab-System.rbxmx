@@ -1,0 +1,228 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<Meta name="ExplicitAutoJoints">true</Meta>
+	<External>null</External>
+	<External>nil</External>
+	<Item class="Script" referent="RBXA9165FB913D54ABE8B8C4E99D3E57513">
+		<Properties>
+			<BinaryString name="AttributesSerialize"></BinaryString>
+			<bool name="Disabled">false</bool>
+			<Content name="LinkedSource"><null></null></Content>
+			<string name="Name">ServerGrab</string>
+			<token name="RunContext">0</token>
+			<string name="ScriptGuid">{10CC20F6-9145-4148-A45C-6431C3AEFB19}</string>
+			<ProtectedString name="Source"><![CDATA[local ReplicatedStorage = game:GetService"ReplicatedStorage"
+local ServerScriptService = game:GetService"ServerScriptService"
+local StarterPlayer = game:GetService"StarterPlayer"
+local StarterPlayerScripts = StarterPlayer:WaitForChild"StarterPlayerScripts"
+
+script.Parent = ServerScriptService
+
+local Remote = script:WaitForChild"NetworkEvent"
+Remote.Parent = ReplicatedStorage
+
+local LC = script.LocalGrab
+LC.Parent = StarterPlayerScripts
+
+Remote.OnServerEvent:Connect(function(Player, v)
+	if v:IsA"BasePart" then
+		v:SetNetworkOwner(Player)
+	elseif v:IsA"Model" then
+		for _, Part in pairs(v:GetDescendants()) do
+			if Part:IsA"BasePart" then
+				Part:SetNetworkOwner(Player)
+			end
+		end
+	end
+end)]]></ProtectedString>
+			<int64 name="SourceAssetId">-1</int64>
+			<BinaryString name="Tags"></BinaryString>
+		</Properties>
+		<Item class="LocalScript" referent="RBX7BB66DC02A2B4925B3316F59BCDC0E05">
+			<Properties>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<bool name="Disabled">false</bool>
+				<Content name="LinkedSource"><null></null></Content>
+				<string name="Name">LocalGrab</string>
+				<token name="RunContext">0</token>
+				<string name="ScriptGuid">{27B7E201-1E32-4C4D-80B6-D8FED50A7E27}</string>
+				<ProtectedString name="Source"><![CDATA[local Players = game:GetService"Players"
+local UserInputService = game:GetService"UserInputService"
+local ReplicatedStorage = game:GetService"ReplicatedStorage"
+
+local Parent = script.Parent
+local Remote = ReplicatedStorage:WaitForChild"NetworkEvent"
+
+local Camera = workspace.CurrentCamera
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild"PlayerGui"
+local Mouse = Player:GetMouse()
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild"Humanoid"
+local Head = Character:WaitForChild"Head"
+
+local ScreenGui = Instance.new"ScreenGui"
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = PlayerGui
+
+local PointA = Instance.new"Frame"
+PointA.Visible = false
+PointA.Size = UDim2.fromOffset(10, 10)
+PointA.AnchorPoint = Vector2.one / 2
+PointA.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+PointA.Parent = ScreenGui
+local PointACorner = Instance.new("UICorner", PointA)
+
+local PointB = PointA:Clone()
+PointB.Parent = ScreenGui
+
+local Line = Instance.new"Frame"
+Line.Visible = false
+Line.AnchorPoint = Vector2.one / 2
+Line.BorderSizePixel = 0
+Line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Line.Parent = ScreenGui
+
+local Highlight = Instance.new"Highlight"
+Highlight.FillTransparency = 1
+Highlight.Parent = Player
+
+local Distance = 10
+
+local Button1Down
+local BasePart, Model, Mover
+
+function ToV2 (v)
+	return Vector2.new(
+		v.X,
+		v.Y
+	)
+end
+
+function DrawLineFromPosition (A, B, PointA, PointB, Line)
+	local D = B - A
+	local M = (A + B) / 2
+	
+	PointA.Position = UDim2.fromOffset(A.X, A.Y)
+	PointB.Position = UDim2.fromOffset(B.X, B.Y)
+
+	Line.AnchorPoint = Vector2.one / 2
+	Line.Position = UDim2.fromOffset(M.X, M.Y)
+	Line.Size = UDim2.fromOffset(D.Magnitude, 5)
+	Line.Rotation = math.deg(math.atan2(D.Y, D.X))
+end
+
+function AddMover (ClassName, Body, Mode)
+	local Attachment0
+
+	if not Body:FindFirstChildOfClass"Attachment" then
+		Attachment0 = Instance.new("Attachment", Body)
+		Attachment0.Name = "CustomAttachment"
+	else
+		Attachment0 = Body:FindFirstChildOfClass"Attachment"
+	end
+
+	local Mover = Instance.new(ClassName)
+	Mover.Name = "CustomMover"
+	Mover.Mode = Mode
+	Mover.Attachment0 = Attachment0
+	Mover.Parent = Body
+
+	return Mover
+end
+
+function RemoveMover (Body)
+	local Body = Body:FindFirstChild"CustomMover"
+	if Body then
+		Body:Destroy()
+	end
+
+	local Attachment0 = Body:FindFirstChild"CustomAttachment"
+	if Attachment0 then
+		Attachment0:Destroy()
+	end
+end
+
+Mouse.Button1Down:Connect(function()
+	Button1Down = true
+	
+	if
+		Mouse.Target 
+		and Mouse.Target:IsA"BasePart" 
+		and not Mouse.Target.Anchored 
+		and not Mouse.Target.Parent:FindFirstChildOfClass"Humanoid" 
+		and not Mouse.Target.Parent.Parent:FindFirstChildOfClass"Humanoid" 
+		and math.round((Head.Position - Mouse.Target.Position).Magnitude) < 20	
+	then
+		BasePart = Mouse.Target
+		Mover = AddMover("AlignPosition", BasePart, Enum.PositionAlignmentMode.OneAttachment)
+		
+		Model = Mouse.Target:FindFirstAncestorOfClass"Model"
+		
+		if Model and not Model:FindFirstChildOfClass"Humanoid" then
+			Highlight.Adornee = Model
+			Remote:FireServer(Model)
+		else
+			Highlight.Adornee = BasePart
+			Remote:FireServer(BasePart)
+		end
+		
+		Mouse.TargetFilter = Model or BasePart
+		
+		spawn(function() task.wait(0.005)
+			PointA.Visible = true
+			PointB.Visible = true
+			Line.Visible = true
+		end)
+		
+		repeat task.wait()
+			if BasePart and Mover then
+				local A
+				local B = UserInputService:GetMouseLocation()
+				
+				if Model then
+					A = ToV2(Camera:WorldToViewportPoint(Model:GetPivot().Position))
+				else
+					A = ToV2(Camera:WorldToViewportPoint(BasePart.Position))
+				end
+
+				DrawLineFromPosition(A, B, PointA, PointB, Line)
+				
+				Mover.Position = Head.Position + 
+					--Mouse.Hit.LookVector * Distance --// Built-in Direction
+					(Mouse.Hit.Position - Head.Position).Unit * Distance --// Custom Direction
+				
+				--// Comment out the directions leaving one un-commented to switch between the 2
+			end
+		until not Button1Down
+	end
+end)
+
+Mouse.Button1Up:Connect(function()
+	Button1Down = false
+	Model = nil
+	Mouse.TargetFilter = nil
+	PointA.Visible = false
+	PointB.Visible = false
+	Line.Visible = false
+	
+	if BasePart then
+		RemoveMover(BasePart)
+	end
+	
+	Highlight.Adornee = nil
+	BasePart = nil
+end)]]></ProtectedString>
+				<int64 name="SourceAssetId">-1</int64>
+				<BinaryString name="Tags"></BinaryString>
+			</Properties>
+		</Item>
+		<Item class="RemoteEvent" referent="RBX4D56BA414DD34436998DE0138806F61F">
+			<Properties>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<string name="Name">NetworkEvent</string>
+				<int64 name="SourceAssetId">-1</int64>
+				<BinaryString name="Tags"></BinaryString>
+			</Properties>
+		</Item>
+	</Item>
+</roblox>
