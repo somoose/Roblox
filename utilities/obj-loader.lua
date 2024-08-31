@@ -1,4 +1,5 @@
-local OBJFile = game:GetService("HttpService"):GetAsync("")
+local args = {...}
+local OBJFile = game:GetService("HttpService"):GetAsync(args[1])
 local Vectors = {}
 local Faces = {}
 for A,Line in next,OBJFile:split("\n") do
@@ -83,3 +84,5 @@ for M,FaceWave in next,Faces do
 		game:GetService("RunService").Stepped:Wait()
 	end
 end
+
+return Model
