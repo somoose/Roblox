@@ -72,7 +72,7 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 					end
 				end
 				
-				Model.PrimaryPart = Model.PrimaryPart or Model:FindFirstChildWhichIsA("BasePart") or Model:FindFirstChildWhichIsA("MeshPart")
+				Model.PrimaryPart = Model.PrimaryPart or Model:FindFirstChildWhichIsA("BasePart")
 				
 				Model:ScaleTo(Scale)
 				Model.Parent = workspace
