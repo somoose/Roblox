@@ -1219,7 +1219,7 @@ PrimaryPart.Transparency = 1
 PrimaryPart.CanCollide = false
 PrimaryPart.Anchored = false
 PrimaryPart.CanQuery = false
-PrimaryPart.CFrame = Base.CFrame * CFrame.Angles(0, math.rad(90), 0)
+PrimaryPart.CFrame = Base.CFrame * CFrame.Angles(0, 0, math.rad(-90))
 PrimaryPart.Parent = PaperBin
 
 PaperBin.PrimaryPart = PrimaryPart
