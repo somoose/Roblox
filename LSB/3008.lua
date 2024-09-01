@@ -16,6 +16,12 @@
 local CollectionService = game:GetService("CollectionService")
 local isHeld_TAG = "isHeld"
 
+local Base = workspace:FindFirstChild("Base")
+
+if Base then
+	CollectionService:AddTag(Base, "__BASE__")
+end
+
 local GrabRemote = Instance.new("RemoteEvent", owner.PlayerGui) -- Used to pick up an item.
 GrabRemote.Name = "GrabRemote"
 
@@ -43,7 +49,7 @@ end
 local CanCollide = false
 local Transparency = 0.5
 
-GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints)
+GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
 		
@@ -125,6 +131,30 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints)
 					PreviousItem.Transparency = Properties[2]
 					PreviousItem.Massless = Properties[3]
 				end
+				
+				for _, TouchingPart in pairs(TouchingParts) do
+					if CollectionService:HasTag(TouchingPart, "__BASE__") then
+						PreviousItem.Anchored = true
+						
+						table.remove(TouchingParts, table.find(TouchingParts, TouchingPart))
+						
+						break
+					end
+					
+					local Weld = Instance.new("Weld", PreviousItem)
+					Weld.C0 = PreviousItem.CFrame:Inverse() * TouchingPart.CFrame
+					Weld.Part0 = PreviousItem
+					Weld.Part1 = TouchingPart
+				end
+				
+				if #TouchingParts == 1 then
+					local Model = TouchingParts[1]:FindFirstAncestorOfClass("Model") or Instance.new("Model", TouchingParts[1].Parent)
+					
+					TouchingParts[1].Parent = Model
+					PreviousItem.Parent = Model
+				elseif #TouchingParts == 2 then
+					
+				end
 			elseif PreviousItem:IsA("Model") then
 				for _, Part in pairs(PreviousItem:GetDescendants()) do
 					if Part:IsA("BasePart") or Part:IsA("Part") then
@@ -197,12 +227,13 @@ local ServerScript = GetServerScriptRemote:InvokeServer()
 
 -- // Logical Variables ============================================================================================================== \\
 -- 		Target Variables
+local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
 local CURRENTITEM = nil -- Part or Model that is currently being held. 															(INSTANCE)
 local TARGET = nil -- Current target being interacted with. (can be a Model or a Part) 											(INSTANCE)
 local FIRSTINPUTTARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
 local MUSTBEUNLOCKED = false -- If true, you can only pick up unlocked items.													(BOOLEAN)
 local MUSTBEINRANGE = true -- If true, you can only pick up items less than MAXGRABDISTANCE away.								(BOOLEAN)
-local TOUCHING = {} -- The parts of CURRENTITEM and the parts they're in contact with.											(ARRAY)
+local TOUCHINGPARTS = {} -- The parts of CURRENTITEM and the parts they're in contact with.										(ARRAY)
 local CANBEPLACED = true -- False when the held item is in contact with parts that the item cannot be placed in.				(BOOLEAN)
 
 local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.								(STRING)
@@ -228,7 +259,7 @@ local RAYCASTHOLDDISTANCE = 0 -- The max distance an object can be held from the
 local MAXGRABDISTANCE = 15 -- The max distance away from which an item can be picked up. 										(NUMBER)
 local HOLDDISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
 local HOLDDISTANCEINCREMENT = 0.5 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
-local MAXHOLDDISTANCE = math.huge -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
+local MAXHOLDDISTANCE = 1e5 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
 local MINIMUMHOLDDISTANCE = 2 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
 local ROTATIONINCREMENT15 = math.rad(15) --																						(NUMBER)
 local ROTATIONINCREMENT45 = math.rad(45) --																						(NUMBER)
@@ -345,18 +376,20 @@ FUNCTIONS.FitsCriteria = function (Item) -- Check if an item fits the criteria f
 end
 
 FUNCTIONS.UpdateTarget = function () -- Sets TARGET to the suitable Part or Model of Mouse.Target depending on TARGET and INPUT based factors.
-	local MouseTarget = Mouse.Target
-	
-	if MouseTarget then
-		TARGET = FUNCTIONS.FitsCriteria(ALTDOWN and MouseTarget or (MouseTarget:FindFirstAncestorOfClass("Model") or MouseTarget))
-	else
-		TARGET = nil
+	if not HOLDING then
+		local MouseTarget = Mouse.Target
+		
+		if MouseTarget then
+			TARGET = FUNCTIONS.FitsCriteria(ALTDOWN and MouseTarget or (MouseTarget:FindFirstAncestorOfClass("Model") or MouseTarget))
+		else
+			TARGET = nil
+		end
 	end
 end
 
 FUNCTIONS.UpdateRaycastHoldDistance = function ()
 	local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * MAXHOLDDISTANCE, RAYCASTPARAMS)
-		
+	
 	if RaycastResult then
 		RAYCASTHOLDDISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
 	else
@@ -506,8 +539,8 @@ GUI.UpdateProgressBar() -- Ensure that the progress has been updated to 0.
 
 
 -- // Event Functions \\
-
 FUNCTIONS.ON_PICKUP = function ()
+	HOLDING = true
 	CURRENTITEM = TARGET
 	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENTITEM)
 	
@@ -532,7 +565,6 @@ FUNCTIONS.HOLDING = function ()
 	
 	if CURRENTITEM:IsA("BasePart") then
 		local TouchingParts = workspace:GetPartsInPart(CURRENTITEM)
-		local NewTouchingParts = {}
 		
 		for i, Part in pairs(TouchingParts) do
 			if Part:IsDescendantOf(owner.Character) then
@@ -540,21 +572,27 @@ FUNCTIONS.HOLDING = function ()
 			end
 		end
 		
-		if #TouchingParts > 0 then -- CURRENTITEM is colliding.
+		TOUCHINGPARTS = TouchingParts
+		
+		if #TOUCHINGPARTS > 0 then -- CURRENTITEM is colliding.
 			SelectionBox.Adornee = CURRENTITEM
 		else
 			SelectionBox.Adornee = nil
 		end
+	elseif CURRENTITEM:IsA("Model") then
+		
 	end
 end
 
 FUNCTIONS.ON_DROP = function ()
+	HOLDING = false
 	SelectionBox.Adornee = nil
-	GrabRemote:FireServer()
+	Highlight.Adornee = nil
+	GrabRemote:FireServer(false, false, TOUCHINGPARTS)
 	
 	local startwait = tick()
 	
-	repeat task.wait() if tick() - startwait > 2 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	repeat task.wait() if tick() - startwait > 5 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
 	
 	FUNCTIONS.ParentBodyMovers(nil)
 	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
@@ -687,7 +725,10 @@ RunService.PostSimulation:Connect(function(Delta)
 	-- Update the TARGET variable.
 	FUNCTIONS.UpdateTarget()
 	Highlight.Adornee = TARGET
-	FUNCTIONS.UpdateRaycastHoldDistance()
+	
+	if HOLDING then
+		FUNCTIONS.UpdateRaycastHoldDistance()
+	end
 	
 	if SHIFTDOWN and not CTRLDOWN then
 		ORIENTATIONINCREMENT = ROTATIONINCREMENT90
@@ -700,7 +741,7 @@ RunService.PostSimulation:Connect(function(Delta)
 	end
 	
 	-- Update GUI GrabCaret and CircularProgressBar.
-	if CURRENTITEM then
+	if CURRENTITEM and HOLDING then
 		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.fromScale(0.5, 0.5), CARETSPEED)
 		if GUI.CircularProgressBar.Visible then GUI.CircularProgressBar.Visible = false end
 		
