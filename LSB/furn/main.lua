@@ -54,23 +54,9 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 			end
 			
 			for i, Model in pairs(Models) do
-				if Model.Name == "Jenga" then
-					for _, Part in pairs(Model:GetDescendants()) do
-						if Part:IsA("Part") then
-							Part.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.5, 0.2, 0.8, 1.0)
-						elseif Part:IsA("DragDetector") then
-							Part.Responsiveness = 10
-							
-							Part.DragStart:Connect(function(Player)
-								Part.Parent:SetNetworkOwner(Player)
-							end)
-						end
-						
-						if SeatDisabled then
-							if Part:IsA("Seat") then
-								Part.Enabled = false
-							end
-						end
+				if SeatDisabled then
+					if Part:IsA("Seat") then
+						Part.Enabled = false
 					end
 				end
 				
