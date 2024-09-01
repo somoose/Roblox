@@ -3,7 +3,9 @@ local Furniture = {
 	Chair = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/chair.lua",
 	Stool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/stool.lua",
 	Table = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/table.lua",
-	Jenga = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/jenga.lua"
+	Jenga = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/jenga.lua",
+	SquareStool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/square-stool.lua",
+	TrafficCone = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/traffic-cone.lua"
 }
 
 local Keys = {}
