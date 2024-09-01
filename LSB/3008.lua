@@ -302,6 +302,7 @@ local INCREASEDISTANCE_INPUT = Enum.KeyCode.Five --																				(ENUM)
 local DECREASEDISTANCE_INPUT = Enum.KeyCode.Four --																				(ENUM)
 local CHECK_NETWORKOWNER_INPUT = Enum.KeyCode.Z --																				(ENUM)
 local CHANGE_CAMERAMODE_INPUT = Enum.KeyCode.C --																				(ENUM)
+local CHANGE_MODE = Enum.KeyCode.Q --																							(ENUM)
 local PICKUPINPUTDOWN = false -- True when the E key is pressed. 																(BOOLEAN)
 local CTRLDOWN = false -- True when the left control button is held down. 														(BOOLEAN)
 local SHIFTDOWN = false -- True when the left shift button is held down. 														(BOOLEAN)
@@ -606,7 +607,6 @@ FUNCTIONS.HOLDING = function ()
 			SelectionBox.Adornee = nil
 		end
 	elseif CURRENTITEM:IsA("Model") then
-		
 	end
 end
 
@@ -690,6 +690,12 @@ GUI.InputBegan = function (Input, GPE)
 					owner.CameraMode = Enum.CameraMode.LockFirstPerson
 				elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
 					owner.CameraMode = Enum.CameraMode.Classic
+				end
+			elseif Input.KeyCode == CHANGE_MODE then
+				if MODE == "Camera" then
+					MODE = "Mouse"
+				elseif MODE == "Mouse" then
+					MODE = "Camera"
 				end
 			end
 		end
