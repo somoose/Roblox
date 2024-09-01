@@ -1,18 +1,24 @@
-local Furniture = {
-	Bench = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/bench.lua",
-	Chair = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/chair.lua",
-	Stool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/stool.lua",
-	Table = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/table.lua",
-	Jenga = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/jenga.lua",
-	SquareStool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/square-stool.lua",
-	TrafficCone = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/traffic-cone.lua",
-	TrashBin = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/trash-bin.lua",
-	PaperBin = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/paper-bin.lua"
+local githubprefix = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/"
+
+local furniturelinks = {
+	["bench"] = "bench.lua",
+	["chair"] = "chair.lua",
+	["stool"] = "stool.lua",
+	["table"] = "table.lua",
+	["jenga"] = "jenga.lua",
+	["square-stool"] = "square-stool.lua",
+	["traffic-cone"] = "traffic-cone.lua",
+	["trash-bin"] = "trash-bin.lua",
+	["paper-bin"] = "paper-bin.lua"
 }
+
+for name, filename in pairs(furniturelinks) do
+	furniturelinks[name] = githubprefix .. filename
+end
 
 local Keys = {}
 
-for Key, Value in pairs(Furniture) do
+for Key, Value in pairs(furniturelinks) do
 	table.insert(Keys, Key)
 end
 
@@ -32,7 +38,7 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 	Scale = tonumber(Scale) or 1
 	SeatDisabled = SeatDisabled == "true" and true or false
 	
-	for Name, Link in pairs(Furniture) do
+	for Name, Link in pairs(furniturelinks) do
 		if Name:lower():sub(1, #Index) == Index:lower() then
 			local CharacterSize = owner.Character:GetExtentsSize()
 			
