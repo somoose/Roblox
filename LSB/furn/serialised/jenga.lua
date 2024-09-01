@@ -1028,6 +1028,18 @@ Mesh53.Parent = Smooth53
 local DragDetector53 = Instance.new("DragDetector")
 DragDetector53.Parent = Smooth53
 
+for _, Descendant in pairs(Jenga:GetDescendants()) do
+  if Descendant:IsA("BasePart") then
+    Descendant.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.5, 0.2, 0.8, 1.0)
+  elseif Descendant:IsA("DragDetector") then
+    Descendant.Responsiveness = 10
+
+    Descendant.DragStart:Connect(function(Player)
+      Descendant.Parent:SetNetworkOwner(Player)  
+    end)
+  end
+end
+
 Jenga.Parent = workspace
 
 return Jenga
