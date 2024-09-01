@@ -5,7 +5,8 @@ local Furniture = {
 	Table = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/table.lua",
 	Jenga = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/jenga.lua",
 	SquareStool = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/square-stool.lua",
-	TrafficCone = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/traffic-cone.lua"
+	TrafficCone = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/traffic-cone.lua",
+	TrashBin = "https://raw.githubusercontent.com/somoose/Roblox/master/LSB/furn/serialised/trash-bin.lua"
 }
 
 local Keys = {}
