@@ -1213,7 +1213,16 @@ Part119.CFrame = CFrame.new(-127.43553161621094, 1.0709162950515747, 47.13889312
 Part119.Shape = Enum.PartType.Cylinder
 Part119.Parent = PaperBin
 
-PaperBin.PrimaryPart = Base
+local PrimaryPart = Instance.new("Part")
+PrimaryPart.Size = Vector3.one
+PrimaryPart.Transparency = 1
+PrimaryPart.CanCollide = false
+PrimaryPart.Anchored = false
+PrimaryPart.CanQuery = false
+PrimaryPart.CFrame = Base.CFrame * CFrame.Angles(0, 0, math.rad(90))
+PrimaryPart.Parent = PaperBin
+
+PaperBin.PrimaryPart = PrimaryPart
 
 for _, Part in pairs(PaperBin:GetChildren()) do
 	if Part:IsA("BasePart") then
