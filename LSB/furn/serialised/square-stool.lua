@@ -121,6 +121,5 @@ Weld5.Part1 = Part6
 Weld5.Part0 = Part1
 
 WoodenStool.PrimaryPart = Part1
-WoodenStool.Parent = workspace.Furniture
 
 return WoodenStool
