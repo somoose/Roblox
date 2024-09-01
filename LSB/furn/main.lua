@@ -94,6 +94,8 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 			return Models
 		end
 	end
+
+	warn"Loop finished without returning model."
 end
 
 function ClearAllModels ()
