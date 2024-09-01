@@ -47,7 +47,7 @@ function CreateUID ()
 end
 
 local CanCollide = false
-local Transparency = 0.5
+local Transparency = 0.25
 
 GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 	if Item then -- User is picking up Item.
@@ -56,6 +56,13 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 		PreviousItem = Item
 		
 		if Item:IsA("BasePart") or Item:IsA("Part") then
+			if BreakJoints then
+				Item.CanCollide = true
+				
+				Item:BreakJoints()
+				Item.Parent = workspace
+			end
+			
 			PreviousProperties[Item.Name] = {
 				Item.CanCollide,
 				Item.Transparency,
@@ -66,14 +73,6 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 			if Item.CanCollide ~= CanCollide then Item.CanCollide = CanCollide end
 			if Item.Transparency < Transparency then Item.Transparency = Transparency end
 			if not Item.Massless then Item.Massless = true end
-			
-			if BreakJoints then
-				Item.CanCollide = true
-				PreviousProperties[Item.Name][1] = true
-				
-				Item:BreakJoints()
-				Item.Parent = workspace
-			end
 			
 			PreviousNetworkOwners[Item.Name] = Item:GetNetworkOwner()
 			Item:SetNetworkOwner(owner)
@@ -119,7 +118,7 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 		end
 	else
 		if PreviousItem then -- User is dropping PreviousItem.
-			if PreviousItem:IsA("BasePart") or PreviousItem:IsA("Part") then
+			if PreviousItem:IsA("BasePart") then
 				if PreviousNetworkOwners[PreviousItem.Name] then
 					PreviousItem:SetNetworkOwner(PreviousNetworkOwners[PreviousItem.Name])
 				end
@@ -206,6 +205,7 @@ local FUNCTIONS = {}
 
 
 -- Services
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -258,15 +258,42 @@ FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.												
 local RAYCASTHOLDDISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
 local MAXGRABDISTANCE = 15 -- The max distance away from which an item can be picked up. 										(NUMBER)
 local HOLDDISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
-local HOLDDISTANCEINCREMENT = 0.5 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
-local MAXHOLDDISTANCE = 1e5 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
-local MINIMUMHOLDDISTANCE = 2 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
+local HOLDDISTANCEINCREMENT = 0.25 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
+local MAXHOLDDISTANCE = 25 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
+local MINIMUMHOLDDISTANCE = 0 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
 local ROTATIONINCREMENT15 = math.rad(15) --																						(NUMBER)
 local ROTATIONINCREMENT45 = math.rad(45) --																						(NUMBER)
 local ROTATIONINCREMENT90 = math.rad(90) --																						(NUMBER)
 local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
 local ORIENTATION = CFrame.new() -- The orientation of the item being held. 													(ARRAY)
 local ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- The increment that the Orientation value increases at. 						(NUMBER)
+local MODES = { --																												(ARRAY)
+	["Camera"] = nil, --																										(FUNCTION)
+	["Mouse"] = nil --																											(FUNCTION)
+}
+local MODE = "Mouse"
+MODES.Camera = function ()
+	local Origin = Camera.CFrame.Position
+	local Direction = Camera.CFrame.LookVector
+	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
+	
+	return Origin + Direction * Distance
+end
+MODES.Mouse = function ()
+	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
+	
+	local Origin = Camera.CFrame.Position
+	local Direction = ScreenRay.Direction * 1e5
+	
+	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+	
+	if Result then
+		return Result.Position
+	else
+		return Origin + Direction
+	end
+end
 
 --		Input Variables
 local PICKUP_INPUT = Enum.KeyCode.E --																							(ENUM)
@@ -307,6 +334,7 @@ local HighlightColorRed = {
 	FillColor = Color3.fromRGB(255, 0, 0),
 	OutlineColor = Color3.fromRGB(200, 0, 0)
 }
+
 -- \\ =============================================================================================================================== //
 
 local Highlight = Instance.new("Highlight", ServerScript)
@@ -556,11 +584,9 @@ FUNCTIONS.ON_PICKUP = function ()
 end
 
 FUNCTIONS.HOLDING = function ()
-	local Origin = Camera.CFrame.Position
-	local Direction = Camera.CFrame.LookVector
-	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
+	local Destination = MODES[MODE]()
 	
-	AlignPosition.Position = Origin + Direction * Distance
+	AlignPosition.Position = Destination
 	AlignOrientation.CFrame = ORIENTATION
 	
 	if CURRENTITEM:IsA("BasePart") then
