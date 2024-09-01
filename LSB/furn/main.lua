@@ -63,7 +63,7 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 				if SeatDisabled then
 					for _, Part in pairs(Model:GetDescendants()) do
 						if Part:IsA("Seat") then
-							Part.Enabled = false
+							Part.Disabled = true
 						end
 					end
 				end
