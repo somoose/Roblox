@@ -9,7 +9,8 @@ local furniturelinks = {
 	["square-stool"] = "square-stool.lua",
 	["traffic-cone"] = "traffic-cone.lua",
 	["trash-bin"] = "trash-bin.lua",
-	["paper-bin"] = "paper-bin.lua"
+	["paper-bin"] = "paper-bin.lua",
+	["gnome"] = "gnome.lua"
 }
 
 for name, filename in pairs(furniturelinks) do
