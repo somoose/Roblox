@@ -10,7 +10,8 @@ local furniturelinks = {
 	["traffic-cone"] = "traffic-cone.lua",
 	["trash-bin"] = "trash-bin.lua",
 	["paper-bin"] = "paper-bin.lua",
-	["gnome"] = "gnome.lua"
+	["gnome"] = "gnome.lua",
+	["ps1-rat"] = "ps1-rat.lua"
 }
 
 for name, filename in pairs(furniturelinks) do
