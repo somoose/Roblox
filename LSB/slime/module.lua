@@ -102,3 +102,5 @@ SlimeModule.MoveTo = function (Slime, Position)
 	
 	task.wait(Info.Time)
 end
+
+return SlimeModule
