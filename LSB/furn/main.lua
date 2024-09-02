@@ -40,6 +40,7 @@ function SpawnFurniture (Index, Amount, Scale, SeatDisabled) -- Returns a new pi
 	
 	for Name, Link in pairs(furniturelinks) do
 		if Name:lower():sub(1, #Index) == Index:lower() then
+			print("Spawning: " .. Amount .. " " .. Name .. "'s at scale " .. Scale)
 			local CharacterSize = owner.Character:GetExtentsSize()
 			
 			local Models = {}
