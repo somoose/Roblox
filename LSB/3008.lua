@@ -197,9 +197,6 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 end)
 
 NLS([[
-owner.CameraMode = Enum.CameraMode.LockFirstPerson
-
-
 local GUI = {}
 local FUNCTIONS = {}
 
@@ -271,13 +268,26 @@ local MODES = { --																												(ARRAY)
 	["Camera"] = nil, --																										(FUNCTION)
 	["Mouse"] = nil --																											(FUNCTION)
 }
-local MODE = "Mouse"
+local MODE = "Camera"
+
+function SnapToGrid (Vector, Scale)
+	return Vector
+	
+	--local HalfScale = Scale / 2
+	
+	--return Vector3.new(
+	--	math.round(Vector.X / Scale) * Scale + (Vector.X % Scale >= Scale/2 and -Scale/2 or Scale/2),
+	--	Vector.Y,
+	--	math.round(Vector.Z / Scale) * Scale + (Vector.Z % Scale >= Scale/2 and -Scale/2 or Scale/2)
+	--)
+end
+
 MODES.Camera = function ()
 	local Origin = Camera.CFrame.Position
 	local Direction = Camera.CFrame.LookVector
 	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
 	
-	return Origin + Direction * Distance
+	return SnapToGrid(Origin + Direction * Distance, 1)
 end
 MODES.Mouse = function ()
 	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
@@ -288,11 +298,9 @@ MODES.Mouse = function ()
 	
 	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
 	
-	if Result then
-		return Result.Position
-	else
-		return Origin + Direction
-	end
+	local Destination = Result ~= nil and Result.Position or Origin + Direction
+	
+	return SnapToGrid(Destination, 1)
 end
 
 --		Input Variables
@@ -587,6 +595,8 @@ end
 FUNCTIONS.HOLDING = function ()
 	local Destination = MODES[MODE]()
 	
+	CURRENTITEM:PivotTo(CFrame.new(Destination) * ORIENTATION)
+	
 	AlignPosition.Position = Destination
 	AlignOrientation.CFrame = ORIENTATION
 	
@@ -618,7 +628,7 @@ FUNCTIONS.ON_DROP = function ()
 	
 	local startwait = tick()
 	
-	repeat task.wait() if tick() - startwait > 5 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	repeat task.wait() if tick() - startwait > 3 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
 	
 	FUNCTIONS.ParentBodyMovers(nil)
 	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
