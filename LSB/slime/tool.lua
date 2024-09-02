@@ -48,3 +48,7 @@ end)
 Tool.Deactivated:Connect(function()
 	Activated = false
 end)
+
+Tool.Unequipped:Connect(function()
+	Activated = false
+end)
