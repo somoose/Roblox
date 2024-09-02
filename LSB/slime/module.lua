@@ -1,3 +1,5 @@
+local TweenService = game:GetService("TweenService")
+
 local SlimeModule = {}
 SlimeModule.Colors = {
 	BrickColor.new("Forest green"),
