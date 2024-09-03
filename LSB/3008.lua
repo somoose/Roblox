@@ -1,16 +1,23 @@
--- Original SCP 3008 (uglyburger0) Controls
+--[[
 
--- Grabbing and Moving
---		Hold E to pick up and drop items
---		Hold F to throw items
---		Mouse Scroll Wheel: Up to push out, down to bring in
---		4 to bring in, 5 to push out
+	Ideas:
 
--- Rotation (increment = 45)
---		R to Rotate
---		1, 2, 3 to change Axis
---		LeftControl to change Increment to 15 degrees
---		LeftShift to change Increment to 90 degrees
+		Inventory GUI / Furniture placement GUI / Building GUI
+		
+		Redstone / Wiring system.
+
+		(*) Camera bobble
+		Directional walking animation.
+
+		Model Separation: When you remove a part in the middle of a model, split each side of the model into individual models.
+
+		Touch Welding: When you pick up a model that is anchored, automatically weld all the touching parts in the model before unanchoring it.
+		
+		Lerp at a speed of distance.
+		
+		+ gets more transparent the further your cursor is from it.
+
+]]
 
 
 local CollectionService = game:GetService("CollectionService")
@@ -55,7 +62,7 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 		
 		PreviousItem = Item
 		
-		if Item:IsA("BasePart") or Item:IsA("Part") then
+		if Item:IsA("BasePart") then
 			if BreakJoints then
 				Item.CanCollide = true
 				
@@ -80,7 +87,7 @@ GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
 			local Parts = {}
 			
 			for _, Part in pairs(Item:GetDescendants()) do
-				if Part:IsA("BasePart") or Part:IsA("Part") then table.insert(Parts, Part)
+				if Part:IsA("BasePart") then table.insert(Parts, Part)
 					-- Store Part properties in PreviousProperties
 					local UID = CreateUID()
 					CollectionService:AddTag(Part, UID)
@@ -595,17 +602,24 @@ end
 FUNCTIONS.HOLDING = function ()
 	local Destination = MODES[MODE]()
 	
-	CURRENTITEM:PivotTo(CFrame.new(Destination) * ORIENTATION)
+	local OldCFrame = CURRENTITEM:GetPivot()
+	local NewCFrame = CFrame.new(Destination) * ORIENTATION
 	
-	AlignPosition.Position = Destination
-	AlignOrientation.CFrame = ORIENTATION
+	local Distance = (NewCFrame.Position - OldCFrame.Position).Magnitude
+	
+	NewCFrame = OldCFrame:Lerp(NewCFrame, math.clamp(Distance, 0.5, 1))
+	
+	CURRENTITEM:PivotTo(NewCFrame)
+	
+	AlignPosition.Position = NewCFrame.Position
+	AlignOrientation.CFrame = NewCFrame
 	
 	if CURRENTITEM:IsA("BasePart") then
 		local TouchingParts = workspace:GetPartsInPart(CURRENTITEM)
 		
 		for i, Part in pairs(TouchingParts) do
 			if Part:IsDescendantOf(owner.Character) then
-				table.remove(TouchingParts, table.find(TouchingParts, Part))
+				TouchingParts[i] = nil
 			end
 		end
 		
