@@ -11,7 +11,7 @@ local furniturelinks = {
 	["trash-bin"] = "trash-bin.lua",
 	["paper-bin"] = "paper-bin.lua",
 	["gnome"] = "gnome.lua",
-	["ps1-rat"] = "ps1-rat.lua"
+	["ps1-rat"] = "ps1-rat.lua",
 	["blåhaj"] = "blåhaj.lua"
 }
 
