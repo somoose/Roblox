@@ -7,6 +7,9 @@
 		Redstone / Wiring system.
 
 		(*) Camera bobble
+		local function IsFirstPerson()
+			 return (head.CFrame.p - camera.CFrame.p).Magnitude < 1
+		end
 		Directional walking animation.
 
 		Model Separation: When you remove a part in the middle of a model, split each side of the model into individual models.
@@ -56,7 +59,7 @@ end
 local CanCollide = false
 local Transparency = 0.25
 
-GrabRemote.OnServerEvent:Connect(function(_, Item, BreakJoints, TouchingParts)
+GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array, ThrowForce: Number, ThrowDirection: Vector3)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
 		
@@ -239,6 +242,7 @@ local MUSTBEUNLOCKED = false -- If true, you can only pick up unlocked items.			
 local MUSTBEINRANGE = true -- If true, you can only pick up items less than MAXGRABDISTANCE away.								(BOOLEAN)
 local TOUCHINGPARTS = {} -- The parts of CURRENTITEM and the parts they're in contact with.										(ARRAY)
 local CANBEPLACED = true -- False when the held item is in contact with parts that the item cannot be placed in.				(BOOLEAN)
+local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
 local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.								(STRING)
 
@@ -260,9 +264,9 @@ FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.												
 
 -- 		Item Manipulation Variables
 local RAYCASTHOLDDISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
-local MAXGRABDISTANCE = 15 -- The max distance away from which an item can be picked up. 										(NUMBER)
+local MAXGRABDISTANCE = 30 -- The max distance away from which an item can be picked up. 										(NUMBER)
 local HOLDDISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
-local HOLDDISTANCEINCREMENT = 0.25 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
+local HOLDDISTANCEINCREMENT = 0.5 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
 local MAXHOLDDISTANCE = 25 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
 local MINIMUMHOLDDISTANCE = 0 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
 local ROTATIONINCREMENT15 = math.rad(15) --																						(NUMBER)
@@ -271,6 +275,9 @@ local ROTATIONINCREMENT90 = math.rad(90) --																						(NUMBER)
 local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
 local ORIENTATION = CFrame.new() -- The orientation of the item being held. 													(ARRAY)
 local ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- The increment that the Orientation value increases at. 						(NUMBER)
+local THROWFORCE = 0 -- The force in velocity used to throw the item.															(NUMBER)
+local THROWFORCEINCREASE = 5 -- The amount that THROWFORCE increases by.														(NUMBER)
+local MAXTHROWFORCE = 75 -- The max force that can be used to throw the item.													(NUMBER)
 local MODES = { --																												(ARRAY)
 	["Camera"] = nil, --																										(FUNCTION)
 	["Mouse"] = nil --																											(FUNCTION)
@@ -584,13 +591,14 @@ GUI.UpdateProgressBar() -- Ensure that the progress has been updated to 0.
 
 -- // Event Functions \\
 FUNCTIONS.ON_PICKUP = function ()
-	HOLDING = true
 	CURRENTITEM = TARGET
 	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENTITEM)
 	
 	GrabRemote:FireServer(CURRENTITEM, ALTDOWN)
 	
 	repeat task.wait() until CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	
+	HOLDING = true
 	
 	if CURRENTITEM:IsA("BasePart") then
 		FUNCTIONS.ParentBodyMovers(CURRENTITEM)
@@ -601,10 +609,9 @@ end
 
 FUNCTIONS.HOLDING = function ()
 	local Destination = MODES[MODE]()
-	
-	local OldCFrame = CURRENTITEM:GetPivot()
 	local NewCFrame = CFrame.new(Destination) * ORIENTATION
 	
+	local OldCFrame = CURRENTITEM:GetPivot()
 	local Distance = (NewCFrame.Position - OldCFrame.Position).Magnitude
 	
 	NewCFrame = OldCFrame:Lerp(NewCFrame, math.clamp(Distance, 0.5, 1))
@@ -635,17 +642,27 @@ FUNCTIONS.HOLDING = function ()
 end
 
 FUNCTIONS.ON_DROP = function ()
-	HOLDING = false
-	SelectionBox.Adornee = nil
-	Highlight.Adornee = nil
 	GrabRemote:FireServer(false, false, TOUCHINGPARTS)
 	
 	local startwait = tick()
 	
 	repeat task.wait() if tick() - startwait > 3 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
 	
+	HOLDING = false
+	
+	SelectionBox.Adornee = nil
+	Highlight.Adornee = nil
+	
 	FUNCTIONS.ParentBodyMovers(nil)
 	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
+	
+	if THROWFORCE > 0 then
+		local Velocity = Camera.CFrame.LookVector * THROWFORCE
+		
+		print(Velocity)
+		
+		CURRENTITEM.AssemblyLinearVelocity = Camera.CFrame.LookVector * THROWFORCE
+	end
 	
 	CURRENTITEM = nil
 end
@@ -659,13 +676,17 @@ GUI.InputBegan = function (Input, GPE)
 				PICKUPINPUTDOWN = true
 				
 				if CURRENTITEM then
-				
-					-- //////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENTITEM. ||||||||||||||||||||||||||||||||||
-					-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\////////////////////////////////////////////////
+					DROPPING = true
 					
-					FUNCTIONS.ON_DROP()
+					local DROPSTART = tick()
 					
+					repeat
+						if tick() - DROPSTART > 0.5 then
+							THROWFORCE = math.clamp(THROWFORCE + THROWFORCEINCREASE, 0, MAXTHROWFORCE)
+						end
+						
+						task.wait()
+					until not DROPPING
 				else
 					if TARGET then
 						FIRSTINPUTTARGET = TARGET
@@ -710,10 +731,13 @@ GUI.InputBegan = function (Input, GPE)
 					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATIONINCREMENT)
 				end
 			elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
-				if owner.CameraMode == Enum.CameraMode.Classic then
-					owner.CameraMode = Enum.CameraMode.LockFirstPerson
-				elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
-					owner.CameraMode = Enum.CameraMode.Classic
+				if not CTRLDOWN then
+					if owner.CameraMode == Enum.CameraMode.Classic then
+						owner.CameraMode = Enum.CameraMode.LockFirstPerson
+					elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
+						owner.CameraMode = Enum.CameraMode.Classic
+					end
+				else
 				end
 			elseif Input.KeyCode == CHANGE_MODE then
 				if MODE == "Camera" then
@@ -746,6 +770,18 @@ GUI.InputEnded = function (Input, GPE)
 	if not GPE then
 		if Input.UserInputType == Enum.UserInputType.Keyboard then
 			if Input.KeyCode == PICKUP_INPUT then
+				if CURRENTITEM and DROPPING then
+					
+					-- //////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENTITEM. ||||||||||||||||||||||||||||||||||
+					-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
+					
+					FUNCTIONS.ON_DROP()
+					DROPPING = false
+					THROWFORCE = 0
+					
+				end
+				
 				PICKUPINPUTDOWN = false
 				FIRSTINPUTTARGET = nil
 				
@@ -801,6 +837,7 @@ RunService.PostSimulation:Connect(function(Delta)
 		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.fromScale(0.5, 0.5), CARETSPEED)
 		if GUI.CircularProgressBar.Visible then GUI.CircularProgressBar.Visible = false end
 		
+		
 		-- /////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 		-- ||||||||||||||||||||||||||||| User is holding CURRENTITEM. |||||||||||||||||||||||||||||
 		-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
@@ -837,7 +874,8 @@ RunService.PostSimulation:Connect(function(Delta)
 					end
 				end
 			else
-				GUI.InputEnded(PICKUP_INPUTOBJECT, false)
+				--GUI.InputEnded(PICKUP_INPUTOBJECT, false)
+				-- what the hecking heck does this even do
 			end
 		end
 	end
