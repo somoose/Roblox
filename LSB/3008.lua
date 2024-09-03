@@ -619,7 +619,7 @@ FUNCTIONS.HOLDING = function ()
 		
 		for i, Part in pairs(TouchingParts) do
 			if Part:IsDescendantOf(owner.Character) then
-				TouchingParts[i] = nil
+				--TouchingParts[i] = nil
 			end
 		end
 		
