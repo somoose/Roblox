@@ -123,6 +123,14 @@ local Commands = {
 		Code = "cmds",
 		Arguments = "",
 		Description = "Prints all the commands."
+	},
+	{
+		Code = "get",
+		Description = "Prints all the spawnable furniture items."
+		Arguments = "",
+		Function = function ()
+			print(Keys)
+		end
 	}
 }
 
