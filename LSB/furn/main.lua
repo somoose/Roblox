@@ -12,6 +12,7 @@ local furniturelinks = {
 	["paper-bin"] = "paper-bin.lua",
 	["gnome"] = "gnome.lua",
 	["ps1-rat"] = "ps1-rat.lua"
+	["blåhaj"] = "blåhaj.lua"
 }
 
 for name, filename in pairs(furniturelinks) do
