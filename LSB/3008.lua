@@ -1,7 +1,11 @@
 --[[
 
 	Ideas:
-
+		
+		Blue Front Couch
+		
+		Show names of held items.
+		
 		Inventory GUI / Furniture placement GUI / Building GUI
 		
 		Redstone / Wiring system.
@@ -19,7 +23,7 @@
 		Lerp at a speed of distance.
 		
 		+ gets more transparent the further your cursor is from it.
-
+		
 ]]
 
 
@@ -284,24 +288,12 @@ local MODES = { --																												(ARRAY)
 }
 local MODE = "Camera"
 
-function SnapToGrid (Vector, Scale)
-	return Vector
-	
-	--local HalfScale = Scale / 2
-	
-	--return Vector3.new(
-	--	math.round(Vector.X / Scale) * Scale + (Vector.X % Scale >= Scale/2 and -Scale/2 or Scale/2),
-	--	Vector.Y,
-	--	math.round(Vector.Z / Scale) * Scale + (Vector.Z % Scale >= Scale/2 and -Scale/2 or Scale/2)
-	--)
-end
-
 MODES.Camera = function ()
 	local Origin = Camera.CFrame.Position
 	local Direction = Camera.CFrame.LookVector
 	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
 	
-	return SnapToGrid(Origin + Direction * Distance, 1)
+	return Origin + Direction * Distance
 end
 MODES.Mouse = function ()
 	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
@@ -312,9 +304,17 @@ MODES.Mouse = function ()
 	
 	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
 	
-	local Destination = Result ~= nil and Result.Position or Origin + Direction
+	local HalfSize = CURRENTITEM.Size / 2
 	
-	return SnapToGrid(Destination, 1)
+	local RotatedHalfSize = Vector3.new(
+        math.abs(ORIENTATION.RightVector.X * HalfSize.X) + math.abs(ORIENTATION.UpVector.X * HalfSize.Y) + math.abs(ORIENTATION.LookVector.X * HalfSize.Z),
+        math.abs(ORIENTATION.RightVector.Y * HalfSize.X) + math.abs(ORIENTATION.UpVector.Y * HalfSize.Y) + math.abs(ORIENTATION.LookVector.Y * HalfSize.Z),
+        math.abs(ORIENTATION.RightVector.Z * HalfSize.X) + math.abs(ORIENTATION.UpVector.Z * HalfSize.Y) + math.abs(ORIENTATION.LookVector.Z * HalfSize.Z)
+    )
+	
+	local Destination = Result ~= nil and Result.Position + Result.Normal * RotatedHalfSize or Origin + Direction
+	
+	return Destination
 end
 
 --		Input Variables
