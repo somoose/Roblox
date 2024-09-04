@@ -75,8 +75,8 @@ function CreateUID ()
 	return tick() .. "|" .. math.random(100000000, 999999999)
 end
 
-local CanCollide = true
-local Transparency = 0
+local CanCollide = false
+local Transparency = 0.5
 
 GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
 	if Item then -- User is picking up Item.
