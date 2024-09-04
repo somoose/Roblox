@@ -2,28 +2,43 @@
 
 	Ideas:
 		
-		Blue Front Couch
+		Front Couch
+		Floor lamp
+		Plants
+		Chest (hinge lid)
+		Scarecrow
+		Pallet
+		NPCS (slime, etc.)
 		
-		Show names of held items.
+		Shift to run
+		C to crouch
 		
 		Inventory GUI / Furniture placement GUI / Building GUI
 		
 		Redstone / Wiring system.
 
-		(*) Camera bobble
-		local function IsFirstPerson()
-			 return (head.CFrame.p - camera.CFrame.p).Magnitude < 1
-		end
+		Camera bobble
+		
 		Directional walking animation.
-
+		
 		Model Separation: When you remove a part in the middle of a model, split each side of the model into individual models.
-
+		
 		Touch Welding: When you pick up a model that is anchored, automatically weld all the touching parts in the model before unanchoring it.
 		
 		Lerp at a speed of distance.
 		
 		+ gets more transparent the further your cursor is from it.
 		
+		GUI TextLabel that scrolls out to the left and the new text scrolls in from the right.
+			IsWelding
+			Colliding (both modes)
+			Mode
+			Rotation increment
+			Rotation axis
+			Grid increment
+			Throw velocity
+		
+		GUI that says the name of the CURRENT_ITEM.
 ]]
 
 
@@ -60,10 +75,10 @@ function CreateUID ()
 	return tick() .. "|" .. math.random(100000000, 999999999)
 end
 
-local CanCollide = false
-local Transparency = 0.25
+local CanCollide = true
+local Transparency = 0
 
-GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array, ThrowForce: Number, ThrowDirection: Vector3)
+GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
 		
@@ -88,6 +103,11 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 			if Item.Transparency < Transparency then Item.Transparency = Transparency end
 			if not Item.Massless then Item.Massless = true end
 			
+			if Item:IsA("Seat") or Item:IsA("VehicleSeat") then
+				table.insert(PreviousProperties[Item.Name], Item.Disabled)
+				if not Item.Disabled then Item.Disabled = true end
+			end
+			
 			PreviousNetworkOwners[Item.Name] = Item:GetNetworkOwner()
 			Item:SetNetworkOwner(owner)
 		elseif Item:IsA("Model") then
@@ -109,6 +129,11 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 					if Part.CanCollide ~= CanCollide then Part.CanCollide = CanCollide end
 					if Part.Transparency < Transparency then Part.Transparency = Transparency end
 					if not Part.Massless then Part.Massless = true end
+					
+					if Part:IsA("Seat") or Part:IsA("VehicleSeat") then
+						table.insert(PreviousProperties[UID], Part.Disabled)
+						if not Part.Disabled then Part.Disabled = true end
+					end
 				elseif Part:IsA("Humanoid") then
 					Part.Sit = true
 				end
@@ -143,13 +168,17 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 					PreviousItem.CanCollide = Properties[1]
 					PreviousItem.Transparency = Properties[2]
 					PreviousItem.Massless = Properties[3]
+					
+					if PreviousItem:IsA("Seat") or PreviousItem:IsA("VehicleSeat") then
+						PreviousItem.Disabled = Properties[4]
+					end
 				end
 				
-				for _, TouchingPart in pairs(TouchingParts) do
+				for i, TouchingPart in pairs(TouchingParts) do
 					if CollectionService:HasTag(TouchingPart, "__BASE__") then
 						PreviousItem.Anchored = true
 						
-						table.remove(TouchingParts, table.find(TouchingParts, TouchingPart))
+						TouchingParts[i] = nil
 						
 						break
 					end
@@ -194,6 +223,10 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 									Part.Transparency = Properties[2]
 									Part.Massless = Properties[3]
 									
+									if Part:IsA("Seat") or Part:IsA("VehicleSeat") then
+										Part.Disabled = Properties[4]
+									end
+									
 									CollectionService:RemoveTag(Part, Tag)
 								end
 							end
@@ -222,6 +255,12 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 
+local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.
+
+local FilterDescendantsInstances = {owner.Character} -- The instances that the hold distance raycast ignores.					(ARRAY)
+local RAYCASTPARAMS = RaycastParams.new() --																					(RAYCASTPARAMS)
+RAYCASTPARAMS.FilterType = Enum.RaycastFilterType.Blacklist
+
 
 local Camera = workspace.CurrentCamera
 local PlayerGui = owner.PlayerGui
@@ -236,105 +275,81 @@ local GetServerScriptRemote = PlayerGui:WaitForChild("GetServerScriptRemote")
 local ServerScript = GetServerScriptRemote:InvokeServer()
 
 
--- // Logical Variables ============================================================================================================== \\
--- 		Target Variables
+
+local TARGET = nil -- Current item at the mouse.									 											(INSTANCE)
+local CURRENT_ITEM = nil -- Current item being held. 																			(INSTANCE)
+
 local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
-local CURRENTITEM = nil -- Part or Model that is currently being held. 															(INSTANCE)
-local TARGET = nil -- Current target being interacted with. (can be a Model or a Part) 											(INSTANCE)
-local FIRSTINPUTTARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
-local MUSTBEUNLOCKED = false -- If true, you can only pick up unlocked items.													(BOOLEAN)
-local MUSTBEINRANGE = true -- If true, you can only pick up items less than MAXGRABDISTANCE away.								(BOOLEAN)
-local TOUCHINGPARTS = {} -- The parts of CURRENTITEM and the parts they're in contact with.										(ARRAY)
-local CANBEPLACED = true -- False when the held item is in contact with parts that the item cannot be placed in.				(BOOLEAN)
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
-local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.								(STRING)
+local WELDING_ENABLED = true -- When true, user is able to weld items to other items.											(BOOLEAN)
+local TOUCHING = false -- True when the CURRENT_ITEM is touching other parts.													(BOOLEAN)
+local TOUCHING_PARTS = {} -- The parts of CURRENT_ITEM and the parts they're in contact with.									(ARRAY)
 
-local FilterDescendantsInstances = {owner.Character} -- The instances that the hold distance raycast ignores.					(ARRAY)
-local RAYCASTPARAMS = RaycastParams.new() --																					(RAYCASTPARAMS)
-RAYCASTPARAMS.FilterType = Enum.RaycastFilterType.Blacklist
+local MUST_BE_UNLOCKED = false -- If true, you can only pick up unlocked items.													(BOOLEAN)
+local MUST_BE_IN_RANGE = true -- If true, you can only pick up items less than or equal to MAXIMUM_GRAB_DISTANCE away.			(BOOLEAN)
+local MAXIMUM_GRAB_DISTANCE = 30 -- The max distance away from which an item can be picked up. 									(NUMBER)
 
-FUNCTIONS.ReturnPrimaryPart = nil -- Used to get the PrimaryPart of a Model.													(FUNCTION)
-FUNCTIONS.UpdateTarget = nil -- Updates the TARGET variable.																	(FUNCTION)
-FUNCTIONS.UpdateRaycastHoldDistance = nil --																					(FUNCTION)
-FUNCTIONS.FitsCriteria = nil --																									(FUNCTION)
-FUNCTIONS.EditFilterDescendantsInstances = nil --																				(FUNCTION)
-FUNCTIONS.ParentBodyMovers = nil --																								(FUNCTION)
+local HOLD_DISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
+local HOLD_DISTANCE_INCREMENT = 0.5 -- The increment at which the HOLD_DISTANCE increases and decreases. 						(NUMBER)
+local MAXIMUM_HOLD_DISTANCE = 25 -- The furthest CURRENT_ITEM can be held from the user. 										(NUMBER)
+local MINIMUM_HOLD_DISTANCE = 0 -- The closest CURRENT_ITEM can be held to the user. 											(NUMBER)
+local RAYCAST_HOLD_DISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
+
+local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
+local ORIENTATION = CFrame.new() -- The orientation of the item being held. 													(ARRAY)
+local ROTATION_INCREMENT_15 = math.rad(15) --																					(NUMBER)
+local ROTATION_INCREMENT_45 = math.rad(45) --																					(NUMBER)
+local ROTATION_INCREMENT_90 = math.rad(90) --																					(NUMBER)
+local ORIENTATION_INCREMENT = ROTATION_INCREMENT_45 -- The increment that the Orientation value increases at. 					(NUMBER)
+
+local THROW_FORCE = 0 -- The force (velocity) used to throw the CURRENT_ITEM when dropped.										(NUMBER)
+local THROW_FORCE_INCREMENT = 5 -- The amount that THROW_FORCE increases by.													(NUMBER)
+local MAX_THROW_FORCE = 75 -- The max force that can be used to throw the item.													(NUMBER)
+
+local MOVE_MODE = "Camera" --																									(STRING)
+local MOVE_MODES = { --																											(ARRAY)
+	["Camera"] = nil, --																										(FUNCTION)
+	["Mouse"] = nil --																											(FUNCTION)
+}
+
+--		Input KeyCodes
+local PICKUP_INPUT = Enum.KeyCode.E --																							(ENUM)
+local ROTATE_INPUT = Enum.KeyCode.R --																							(ENUM)
+local INCREASEDISTANCE_INPUT = Enum.KeyCode.Five --																				(ENUM)
+local DECREASEDISTANCE_INPUT = Enum.KeyCode.Four --																				(ENUM)
+local CHECK_NETWORK_OWNER_INPUT = Enum.KeyCode.Z --																				(ENUM)
+local CHANGE_CAMERAMODE_INPUT = Enum.KeyCode.C --																				(ENUM)
+local CHANGE_MODE_INPUT = Enum.KeyCode.Q --																						(ENUM)
+local DELETE_INPUT = Enum.KeyCode.X --																							(ENUM)
+
+--		Keys Down Variables
+local PICKUP_INPUT_DOWN = false -- True when the E key is pressed. 																(BOOLEAN)
+local CTRL_DOWN = false -- True when the left control button is held down. 														(BOOLEAN)
+local SHIFT_DOWN = false -- True when the left shift button is held down. 														(BOOLEAN)
+local ALT_DOWN = false -- True when the left alt button is held down.															(BOOLEAN)
+
+local PICKUP_INPUTOBJECT = {UserInputType = Enum.UserInputType.Keyboard, KeyCode = PICKUP_INPUT} --	PICKUP Input emulation.		(ARRAY)
+local FIRSTINPUTTARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
+
+-- 		GUI Variables
+local PICKUP_HOLD = 0.1 -- The amount of time in seconds it takes GUI.Progress.Value to reach 360. 								(NUMBER)
+local GRAB_CARET_SPEED = 0.5 -- The speed GUI.GrabCaret lerps at. 																(NUMBER)
+local PICKUP_TWEEN = nil -- The tween used to lerp the GUI.PROGRESS value. Updates with a new Tween on every E InputBegan. 		(INSTANCE)
+
 
 -- 		Event Functions
 FUNCTIONS.ON_PICKUP = nil -- The function run when an item is picked up.														(FUNCTION)
 FUNCTIONS.HOLDING = nil -- The function run while an item is being held.														(FUNCTION)
 FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.															(FUNCTION)
 
--- 		Item Manipulation Variables
-local RAYCASTHOLDDISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
-local MAXGRABDISTANCE = 30 -- The max distance away from which an item can be picked up. 										(NUMBER)
-local HOLDDISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
-local HOLDDISTANCEINCREMENT = 0.5 -- The increment at which the HOLDDISTANCE increases and decreases. 							(NUMBER)
-local MAXHOLDDISTANCE = 25 -- The furthest CURRENTITEM can be held from the user. 												(NUMBER)
-local MINIMUMHOLDDISTANCE = 0 -- The closest CURRENTITEM can be held to the user. 												(NUMBER)
-local ROTATIONINCREMENT15 = math.rad(15) --																						(NUMBER)
-local ROTATIONINCREMENT45 = math.rad(45) --																						(NUMBER)
-local ROTATIONINCREMENT90 = math.rad(90) --																						(NUMBER)
-local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
-local ORIENTATION = CFrame.new() -- The orientation of the item being held. 													(ARRAY)
-local ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- The increment that the Orientation value increases at. 						(NUMBER)
-local THROWFORCE = 0 -- The force in velocity used to throw the item.															(NUMBER)
-local THROWFORCEINCREASE = 5 -- The amount that THROWFORCE increases by.														(NUMBER)
-local MAXTHROWFORCE = 75 -- The max force that can be used to throw the item.													(NUMBER)
-local MODES = { --																												(ARRAY)
-	["Camera"] = nil, --																										(FUNCTION)
-	["Mouse"] = nil --																											(FUNCTION)
-}
-local MODE = "Camera"
+FUNCTIONS.ReturnPrimaryPart = nil -- Returns the PrimaryPart of a Model.														(FUNCTION)
+FUNCTIONS.UpdateTarget = nil -- Updates the TARGET variable.																	(FUNCTION)
+FUNCTIONS.UpdateRaycastHoldDistance = nil -- Updates RAYCASTHOLD_DISTANCE														(FUNCTION)
+FUNCTIONS.FitsCriteria = nil --	Returns true if the parsed item fits pick up criteria.											(FUNCTION)
+FUNCTIONS.EditFilterDescendantsInstances = nil -- Adds and removes items to the RAYCASTPARAMS.FilterDescendantsInstances		(FUNCTION)
+FUNCTIONS.ParentBodyMovers = nil --	Parents the BodyMovers to the item parsed to it.											(FUNCTION)
 
-MODES.Camera = function ()
-	local Origin = Camera.CFrame.Position
-	local Direction = Camera.CFrame.LookVector
-	local Distance = math.clamp(HOLDDISTANCE, MINIMUMHOLDDISTANCE, (RAYCASTHOLDDISTANCE < MINIMUMHOLDDISTANCE and MINIMUMHOLDDISTANCE or RAYCASTHOLDDISTANCE))
-	
-	return Origin + Direction * Distance
-end
-MODES.Mouse = function ()
-	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
-	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
-	
-	local Origin = Camera.CFrame.Position
-	local Direction = ScreenRay.Direction * 1e5
-	
-	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
-	
-	local HalfSize = CURRENTITEM.Size / 2
-	
-	local RotatedHalfSize = Vector3.new(
-        math.abs(ORIENTATION.RightVector.X * HalfSize.X) + math.abs(ORIENTATION.UpVector.X * HalfSize.Y) + math.abs(ORIENTATION.LookVector.X * HalfSize.Z),
-        math.abs(ORIENTATION.RightVector.Y * HalfSize.X) + math.abs(ORIENTATION.UpVector.Y * HalfSize.Y) + math.abs(ORIENTATION.LookVector.Y * HalfSize.Z),
-        math.abs(ORIENTATION.RightVector.Z * HalfSize.X) + math.abs(ORIENTATION.UpVector.Z * HalfSize.Y) + math.abs(ORIENTATION.LookVector.Z * HalfSize.Z)
-    )
-	
-	local Destination = Result ~= nil and Result.Position + Result.Normal * RotatedHalfSize or Origin + Direction
-	
-	return Destination
-end
-
---		Input Variables
-local PICKUP_INPUT = Enum.KeyCode.E --																							(ENUM)
-local ROTATE_INPUT = Enum.KeyCode.R --																							(ENUM)
-local INCREASEDISTANCE_INPUT = Enum.KeyCode.Five --																				(ENUM)
-local DECREASEDISTANCE_INPUT = Enum.KeyCode.Four --																				(ENUM)
-local CHECK_NETWORKOWNER_INPUT = Enum.KeyCode.Z --																				(ENUM)
-local CHANGE_CAMERAMODE_INPUT = Enum.KeyCode.C --																				(ENUM)
-local CHANGE_MODE = Enum.KeyCode.Q --																							(ENUM)
-local PICKUPINPUTDOWN = false -- True when the E key is pressed. 																(BOOLEAN)
-local CTRLDOWN = false -- True when the left control button is held down. 														(BOOLEAN)
-local SHIFTDOWN = false -- True when the left shift button is held down. 														(BOOLEAN)
-local ALTDOWN = false -- True when the left alt button is held down.															(BOOLEAN)
-local PICKUP_INPUTOBJECT = {UserInputType = Enum.UserInputType.Keyboard, KeyCode = PICKUP_INPUT} --								(ARRAY)
-
--- 		GUI Variables
-local EHOLD = 0.5 -- The amount of time in seconds it takes GUI.Progress.Value to reach 360. 									(NUMBER)
-local ETWEEN = nil -- The tween used to lerp the GUI.PROGRESS value. Updates with a new Tween on every E InputBegan. 			(INSTANCE)
-local CARETSPEED = 0.45 -- The speed GUI.GrabCaret lerps at. 																	(NUMBER)
 
 --		Audios
 local ScrollWheelClickSound = Instance.new("Sound", owner.PlayerGui) --															(SOUND)
@@ -349,16 +364,16 @@ RotateSound.SoundId = "rbxassetid://9114067301"
 RotateSound.PlaybackSpeed = 1.5
 RotateSound.Volume = 0.75
 
-local HighlightColorWhite = {
+
+local HighlightColorWhite = { --																								(ARRAY)
 	FillColor = Color3.fromRGB(100, 100, 100),
 	OutlineColor = Color3.fromRGB(255, 255, 255)
 }
-local HighlightColorRed = {
+local HighlightColorRed = { --																									(ARRAY)
 	FillColor = Color3.fromRGB(255, 0, 0),
 	OutlineColor = Color3.fromRGB(200, 0, 0)
 }
 
--- \\ =============================================================================================================================== //
 
 local Highlight = Instance.new("Highlight", ServerScript)
 Highlight.FillTransparency = 0.8
@@ -388,6 +403,40 @@ AlignOrientation.RigidityEnabled = true
 AlignOrientation.MaxTorque = Vector3.one * math.huge
 AlignOrientation.Responsiveness = Vector3.one * math.huge
 
+MOVE_MODES.Camera = function ()
+	local Origin = Camera.CFrame.Position
+	local Direction = Camera.CFrame.LookVector
+	local Distance = math.clamp(HOLD_DISTANCE, MINIMUM_HOLD_DISTANCE, (RAYCAST_HOLD_DISTANCE < MINIMUM_HOLD_DISTANCE and MINIMUM_HOLD_DISTANCE or RAYCAST_HOLD_DISTANCE))
+	
+	return Origin + Direction * Distance
+end
+
+MOVE_MODES.Mouse = function ()
+	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
+	
+	local Origin = Camera.CFrame.Position
+	local Direction = ScreenRay.Direction * 1e6
+	
+	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+	
+	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
+	
+	local RotatedSize = Vector3.new(
+        math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
+        math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
+        math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
+    )
+	
+	local FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
+	
+	return Result ~= nil and FinalDestination or Origin + Direction
+end
+
+FUNCTIONS.IsFirstPerson = function ()
+	return (owner.Character.Head.Position - Camera.CFrame.Position).Magnitude < 2
+end
+
 FUNCTIONS.ParentBodyMovers = function (Parent)
 	Attachment0.Parent = Parent
 	AlignPosition.Parent = Parent
@@ -412,12 +461,12 @@ end
 
 FUNCTIONS.FitsCriteria = function (Item) -- Check if an item fits the criteria for being picked up.
 	if Item:IsA("BasePart") then
-		if MUSTBEUNLOCKED and Item.Locked then return end
-		if MUSTBEINRANGE and (Item.Position - owner.Character.Head.Position).Magnitude > MAXGRABDISTANCE then return end
+		if MUST_BE_UNLOCKED and Item.Locked then return end
+		if MUST_BE_IN_RANGE and (Item.Position - owner.Character.Head.Position).Magnitude > MAXIMUM_GRAB_DISTANCE then return end
 		if CollectionService:HasTag(Item, ISHELD_TAG) then return end
 	elseif Item:IsA("Model") then
-		if MUSTBEUNLOCKED then for _, BasePart in pairs(Item:GetDescendants()) do if BasePart:IsA("BasePart") then if BasePart.Locked then return end end end end
-		if MUSTBEINRANGE and (FUNCTIONS.ReturnPrimaryPart(Item).Position - owner.Character.Head.Position).Magnitude > MAXGRABDISTANCE then return end
+		if MUST_BE_UNLOCKED then for _, BasePart in pairs(Item:GetDescendants()) do if BasePart:IsA("BasePart") then if BasePart.Locked then return end end end end
+		if MUST_BE_IN_RANGE and (FUNCTIONS.ReturnPrimaryPart(Item).Position - owner.Character.Head.Position).Magnitude > MAXIMUM_GRAB_DISTANCE then return end
 		if CollectionService:HasTag(Item, ISHELD_TAG) then return end
 	else
 		return
@@ -439,12 +488,12 @@ FUNCTIONS.UpdateTarget = function () -- Sets TARGET to the suitable Part or Mode
 end
 
 FUNCTIONS.UpdateRaycastHoldDistance = function ()
-	local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * MAXHOLDDISTANCE, RAYCASTPARAMS)
+	local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * MAXIMUM_HOLD_DISTANCE, RAYCASTPARAMS)
 	
 	if RaycastResult then
-		RAYCASTHOLDDISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
+		RAYCAST_HOLD_DISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
 	else
-		RAYCASTHOLDDISTANCE = MAXHOLDDISTANCE
+		RAYCAST_HOLD_DISTANCE = MAXIMUM_HOLD_DISTANCE
 	end
 end
 
@@ -475,9 +524,9 @@ end
 
 GUI.UpdateGrabCaret = function (Position, InBounds)
 	if InBounds then
-		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.new(0, Position.X, 0, Position.Y), CARETSPEED)
+		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.new(0, Position.X, 0, Position.Y), GRAB_CARET_SPEED)
 	else
-		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.new(0.5, 0, 0.5, 0), CARETSPEED)
+		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.new(0.5, 0, 0.5, 0), GRAB_CARET_SPEED)
 	end
 end
 
@@ -591,62 +640,98 @@ GUI.UpdateProgressBar() -- Ensure that the progress has been updated to 0.
 
 -- // Event Functions \\
 FUNCTIONS.ON_PICKUP = function ()
-	CURRENTITEM = TARGET
-	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENTITEM)
+	CURRENT_ITEM = TARGET
+	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENT_ITEM)
 	
-	GrabRemote:FireServer(CURRENTITEM, ALTDOWN)
+	GrabRemote:FireServer(CURRENT_ITEM, ALTDOWN)
 	
-	repeat task.wait() until CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	repeat task.wait() until CollectionService:HasTag(CURRENT_ITEM, ISHELD_TAG)
 	
 	HOLDING = true
 	
-	if CURRENTITEM:IsA("BasePart") then
-		FUNCTIONS.ParentBodyMovers(CURRENTITEM)
-	elseif CURRENTITEM:IsA("Model") then
-		FUNCTIONS.ParentBodyMovers(FUNCTIONS.ReturnPrimaryPart(CURRENTITEM))
+	GUI.GrabCaret.Visible = false
+	
+	if CURRENT_ITEM:IsA("BasePart") then
+		FUNCTIONS.ParentBodyMovers(CURRENT_ITEM)
+	elseif CURRENT_ITEM:IsA("Model") then
+		FUNCTIONS.ParentBodyMovers(FUNCTIONS.ReturnPrimaryPart(CURRENT_ITEM))
 	end
 end
 
 FUNCTIONS.HOLDING = function ()
-	local Destination = MODES[MODE]()
+	local Destination = MOVE_MODES[MOVE_MODE]()
 	local NewCFrame = CFrame.new(Destination) * ORIENTATION
 	
-	local OldCFrame = CURRENTITEM:GetPivot()
+	local OldCFrame = CURRENT_ITEM:GetPivot()
 	local Distance = (NewCFrame.Position - OldCFrame.Position).Magnitude
 	
 	NewCFrame = OldCFrame:Lerp(NewCFrame, math.clamp(Distance, 0.5, 1))
 	
-	CURRENTITEM:PivotTo(NewCFrame)
+	CURRENT_ITEM:PivotTo(NewCFrame)
 	
 	AlignPosition.Position = NewCFrame.Position
 	AlignOrientation.CFrame = NewCFrame
 	
-	if CURRENTITEM:IsA("BasePart") then
-		local TouchingParts = workspace:GetPartsInPart(CURRENTITEM)
+	if CURRENT_ITEM:IsA("BasePart") then
+		local TouchingParts = workspace:GetPartsInPart(CURRENT_ITEM)
 		
 		for i, Part in pairs(TouchingParts) do
 			if Part:IsDescendantOf(owner.Character) then
-				--TouchingParts[i] = nil
+				TouchingParts[i] = nil
 			end
 		end
 		
-		TOUCHINGPARTS = TouchingParts
+		TOUCHING_PARTS = TouchingParts
 		
-		if #TOUCHINGPARTS > 0 then -- CURRENTITEM is colliding.
-			SelectionBox.Adornee = CURRENTITEM
+		if #TOUCHING_PARTS > 0 then -- CURRENT_ITEM is colliding.
+			SelectionBox.Adornee = CURRENT_ITEM
 		else
 			SelectionBox.Adornee = nil
 		end
-	elseif CURRENTITEM:IsA("Model") then
+	elseif CURRENT_ITEM:IsA("Model") then
+		local IsTouching = false
+		
+		for i, Part in pairs(CURRENT_ITEM:GetDescendants()) do
+			if Part:IsA("BasePart") then
+				local TouchingParts = workspace:GetPartsInPart(Part)
+				
+				for i, TouchingPart in pairs(TouchingParts) do
+					if TouchingPart:IsDescendantOf(owner.Character) or TouchingPart:IsDescendantOf(CURRENT_ITEM) then
+						TouchingParts[i] = nil
+					end
+				end
+				
+				if #TouchingParts > 0 then
+					IsTouching = true
+					TOUCHING_PARTS[Part.Name .. i] = TouchingParts
+				end
+			end
+		end
+		
+		TOUCHING = IsTouching
+		
+		if TOUCHING then
+			SelectionBox.Adornee = CURRENT_ITEM
+		else
+			SelectionBox.Adornee = nil
+		end
 	end
 end
 
 FUNCTIONS.ON_DROP = function ()
-	GrabRemote:FireServer(false, false, TOUCHINGPARTS)
+	GrabRemote:FireServer(false, false, TOUCHING_PARTS)
 	
 	local startwait = tick()
 	
-	repeat task.wait() if tick() - startwait > 3 then warn("Was unable to drop " .. CURRENTITEM.Name .. ". It is now locked through CollectionService.") break end until not CollectionService:HasTag(CURRENTITEM, ISHELD_TAG)
+	repeat
+		if (tick() - startwait) > 2 then
+			warn("Failed to drop: '" .. CURRENT_ITEM.ClassName .. "' - '" .. CURRENT_ITEM:GetFullName() .. "'")
+			
+			break
+		end
+		
+		task.wait()
+	until not CollectionService:HasTag(CURRENT_ITEM, ISHELD_TAG)
 	
 	HOLDING = false
 	
@@ -654,17 +739,19 @@ FUNCTIONS.ON_DROP = function ()
 	Highlight.Adornee = nil
 	
 	FUNCTIONS.ParentBodyMovers(nil)
-	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENTITEM)
+	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENT_ITEM)
 	
-	if THROWFORCE > 0 then
-		local Velocity = Camera.CFrame.LookVector * THROWFORCE
+	if THROW_FORCE > 0 then
+		local Velocity = Camera.CFrame.LookVector * THROW_FORCE
 		
-		print(Velocity)
-		
-		CURRENTITEM.AssemblyLinearVelocity = Camera.CFrame.LookVector * THROWFORCE
+		if CURRENT_ITEM:IsA("BasePart") then
+			CURRENT_ITEM.AssemblyLinearVelocity = Camera.CFrame.LookVector * THROW_FORCE
+		else
+			CURRENT_ITEM:FindFirstChildWhichIsA("BasePart").AssemblyLinearVelocity = Camera.CFrame.LookVector * THROW_FORCE
+		end
 	end
 	
-	CURRENTITEM = nil
+	CURRENT_ITEM = nil
 end
 
 
@@ -675,14 +762,14 @@ GUI.InputBegan = function (Input, GPE)
 			if Input.KeyCode == PICKUP_INPUT then
 				PICKUPINPUTDOWN = true
 				
-				if CURRENTITEM then
+				if CURRENT_ITEM then
 					DROPPING = true
 					
 					local DROPSTART = tick()
 					
 					repeat
 						if tick() - DROPSTART > 0.5 then
-							THROWFORCE = math.clamp(THROWFORCE + THROWFORCEINCREASE, 0, MAXTHROWFORCE)
+							THROW_FORCE = math.clamp(THROW_FORCE + THROW_FORCE_INCREMENT, 0, MAX_THROW_FORCE)
 						end
 						
 						task.wait()
@@ -691,8 +778,8 @@ GUI.InputBegan = function (Input, GPE)
 					if TARGET then
 						FIRSTINPUTTARGET = TARGET
 						GUI.CircularProgressBar.Visible = true
-						ETWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(EHOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
-						ETWEEN:Play()
+						PICKUP_TWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(PICKUP_HOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
+						PICKUP_TWEEN:Play()
 					end
 				end
 			elseif Input.KeyCode == Enum.KeyCode.LeftControl then
@@ -704,11 +791,11 @@ GUI.InputBegan = function (Input, GPE)
 				
 				Highlight.FillColor = HighlightColorRed.FillColor
 				Highlight.OutlineColor = HighlightColorRed.OutlineColor
-			elseif Input.KeyCode == INCREASEDISTANCE_INPUT and CURRENTITEM then
-				HOLDDISTANCE = math.clamp(HOLDDISTANCE + HOLDDISTANCEINCREMENT, MINIMUMHOLDDISTANCE, MAXHOLDDISTANCE)
-			elseif Input.KeyCode == DECREASEDISTANCE_INPUT and CURRENTITEM then
-				HOLDDISTANCE = math.clamp(HOLDDISTANCE - HOLDDISTANCEINCREMENT, MINIMUMHOLDDISTANCE, MAXHOLDDISTANCE)
-			elseif Input.KeyCode == CHECK_NETWORKOWNER_INPUT then
+			elseif Input.KeyCode == INCREASEDISTANCE_INPUT and CURRENT_ITEM then
+				HOLD_DISTANCE = math.clamp(HOLD_DISTANCE + HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
+			elseif Input.KeyCode == DECREASEDISTANCE_INPUT and CURRENT_ITEM then
+				HOLD_DISTANCE = math.clamp(HOLD_DISTANCE - HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
+			elseif Input.KeyCode == CHECK_NETWORK_OWNER_INPUT then
 				CheckOwnerRemote:FireServer(Mouse.Target)
 			elseif Input.KeyCode == Enum.KeyCode.One then
 				AXIS = "X"
@@ -724,11 +811,11 @@ GUI.InputBegan = function (Input, GPE)
 				end
 				
 				if AXIS == "X" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(ORIENTATIONINCREMENT, 0, 0)
+					ORIENTATION = ORIENTATION * CFrame.Angles(ORIENTATION_INCREMENT, 0, 0)
 				elseif AXIS == "Y" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(0, ORIENTATIONINCREMENT, 0)
+					ORIENTATION = ORIENTATION * CFrame.Angles(0, ORIENTATION_INCREMENT, 0)
 				elseif AXIS == "Z" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATIONINCREMENT)
+					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATION_INCREMENT)
 				end
 			elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
 				if not CTRLDOWN then
@@ -739,11 +826,16 @@ GUI.InputBegan = function (Input, GPE)
 					end
 				else
 				end
-			elseif Input.KeyCode == CHANGE_MODE then
+			elseif Input.KeyCode == CHANGE_MODE_INPUT then
 				if MODE == "Camera" then
 					MODE = "Mouse"
 				elseif MODE == "Mouse" then
 					MODE = "Camera"
+				end
+			elseif Input.KeyCode == DELETE_INPUT then
+				if CURRENT_ITEM then
+					--GUI.InputEnded(PICKUPINPUTDOWN, False)
+					FUNCTIONS.ON_DROP()
 				end
 			end
 		end
@@ -753,13 +845,13 @@ end
 GUI.InputChanged = function (Input, GPE)
 	if not GPE then
 		if Input.UserInputType == Enum.UserInputType.MouseWheel then
-			if CURRENTITEM then
+			if CURRENT_ITEM and MOVE_MODE == "Camera" then
 				ScrollWheelClickSound:Play()
 				
 				if Input.Position.Z > 0 then -- Up
-					HOLDDISTANCE = math.clamp(HOLDDISTANCE + HOLDDISTANCEINCREMENT, MINIMUMHOLDDISTANCE, MAXHOLDDISTANCE)
+					HOLD_DISTANCE = math.clamp(HOLD_DISTANCE + HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
 				else -- Down
-					HOLDDISTANCE = math.clamp(HOLDDISTANCE - HOLDDISTANCEINCREMENT, MINIMUMHOLDDISTANCE, MAXHOLDDISTANCE)
+					HOLD_DISTANCE = math.clamp(HOLD_DISTANCE - HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
 				end
 			end
 		end
@@ -770,25 +862,25 @@ GUI.InputEnded = function (Input, GPE)
 	if not GPE then
 		if Input.UserInputType == Enum.UserInputType.Keyboard then
 			if Input.KeyCode == PICKUP_INPUT then
-				if CURRENTITEM and DROPPING then
+				if CURRENT_ITEM and DROPPING then
 					
 					-- //////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENTITEM. ||||||||||||||||||||||||||||||||||
+					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENT_ITEM. |||||||||||||||||||||||||||||||||
 					-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
 					
 					FUNCTIONS.ON_DROP()
 					DROPPING = false
-					THROWFORCE = 0
+					THROW_FORCE = 0
 					
 				end
 				
 				PICKUPINPUTDOWN = false
 				FIRSTINPUTTARGET = nil
 				
-				if ETWEEN then
+				if PICKUP_TWEEN then
 					GUI.CircularProgressBar.Visible = false
-					ETWEEN:Pause()
-					ETWEEN = nil
+					PICKUP_TWEEN:Pause()
+					PICKUP_TWEEN = nil
 					GUI.PROGRESS.Value = 0
 				end
 			elseif Input.KeyCode == Enum.KeyCode.LeftControl then
@@ -822,24 +914,29 @@ RunService.PostSimulation:Connect(function(Delta)
 		FUNCTIONS.UpdateRaycastHoldDistance()
 	end
 	
+	if FUNCTIONS.IsFirstPerson() then
+		MOVE_MODE = "Camera"
+	else
+		MOVE_MODE = "Mouse"
+	end
+	
 	if SHIFTDOWN and not CTRLDOWN then
-		ORIENTATIONINCREMENT = ROTATIONINCREMENT90
+		ORIENTATION_INCREMENT = ROTATION_INCREMENT_90
 	elseif CTRLDOWN and not SHIFTDOWN then
-		ORIENTATIONINCREMENT = ROTATIONINCREMENT15
+		ORIENTATION_INCREMENT = ROTATION_INCREMENT_15
 	elseif not SHIFTDOWN and not CTRLDOWN then
-		ORIENTATIONINCREMENT = ROTATIONINCREMENT45
+		ORIENTATION_INCREMENT = ROTATION_INCREMENT_45
 	elseif SHIFTDOWN and CTRLDOWN then
-		ORIENTATIONINCREMENT = ROTATIONINCREMENT45 -- not used.
+		ORIENTATION_INCREMENT = ROTATION_INCREMENT_45 -- not used.
 	end
 	
 	-- Update GUI GrabCaret and CircularProgressBar.
-	if CURRENTITEM and HOLDING then
-		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.fromScale(0.5, 0.5), CARETSPEED)
+	if CURRENT_ITEM and HOLDING then
+		GUI.GrabCaret.Position = GUI.GrabCaret.Position:Lerp(UDim2.fromScale(0.5, 0.5), GRAB_CARET_SPEED)
 		if GUI.CircularProgressBar.Visible then GUI.CircularProgressBar.Visible = false end
 		
-		
 		-- /////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-		-- ||||||||||||||||||||||||||||| User is holding CURRENTITEM. |||||||||||||||||||||||||||||
+		-- ||||||||||||||||||||||||||||| User is holding CURRENT_ITEM. |||||||||||||||||||||||||||||
 		-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
 		
 		FUNCTIONS.HOLDING()
@@ -853,7 +950,7 @@ RunService.PostSimulation:Connect(function(Delta)
 		else
 			GUI.UpdateGrabCaret(UDim2.fromScale(0.5, 0.5))
 			
-			if ETWEEN then ETWEEN:Pause() end
+			if PICKUP_TWEEN then PICKUP_TWEEN:Pause() end
 			GUI.PROGRESS.Value = 0
 			if GUI.CircularProgressBar.Visible then GUI.CircularProgressBar.Visible = false end
 		end
@@ -862,7 +959,7 @@ RunService.PostSimulation:Connect(function(Delta)
 	if PICKUPINPUTDOWN then
 		if TARGET then
 			if TARGET == FIRSTINPUTTARGET then
-				if not CURRENTITEM then
+				if not CURRENT_ITEM then
 					if GUI.PROGRESS.Value > 359 then
 					
 						-- ///////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -873,9 +970,6 @@ RunService.PostSimulation:Connect(function(Delta)
 						
 					end
 				end
-			else
-				--GUI.InputEnded(PICKUP_INPUTOBJECT, false)
-				-- what the hecking heck does this even do
 			end
 		end
 	end
