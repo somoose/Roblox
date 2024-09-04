@@ -428,7 +428,13 @@ MOVE_MODES.Mouse = function ()
         math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
     )
 	
-	local FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
+local FinalDestination
+
+if CURRENT_ITEM:IsA("BasePart") then
+ FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
+elseif CURRENT_ITEM:IsA("Model") then
+ FinalDestination = Result.Position + Result.Normal * RotatedSize / 2 - (CURRENT_ITEM:GetBoundingBox().Position - CURRENT_ITEM:GetPivot().Position)
+end
 	
 	return Result ~= nil and FinalDestination or Origin + Direction
 end
