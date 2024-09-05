@@ -9,6 +9,8 @@
 		Scarecrow
 		Pallet
 		NPCS (slime, etc.)
+		Cookie jar
+		Food items
 		
 		Shift to run
 		C to crouch
@@ -282,7 +284,8 @@ local CURRENT_ITEM = nil -- Current item being held. 																			(INSTANC
 local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
-local WELDING_ENABLED = true -- When true, user is able to weld items to other items.											(BOOLEAN)
+local COLLISION_ENABLED = true -- When true, the CURRENT_ITEM will be prevented from clipping into objects.						(BOOLEAN)
+local WELDING_ENABLED = true -- When true, user is able to weld CURRENT_ITEM to other items.									(BOOLEAN)
 local TOUCHING = false -- True when the CURRENT_ITEM is touching other parts.													(BOOLEAN)
 local TOUCHING_PARTS = {} -- The parts of CURRENT_ITEM and the parts they're in contact with.									(ARRAY)
 
@@ -293,7 +296,7 @@ local MAXIMUM_GRAB_DISTANCE = 30 -- The max distance away from which an item can
 local HOLD_DISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
 local HOLD_DISTANCE_INCREMENT = 0.5 -- The increment at which the HOLD_DISTANCE increases and decreases. 						(NUMBER)
 local MAXIMUM_HOLD_DISTANCE = 25 -- The furthest CURRENT_ITEM can be held from the user. 										(NUMBER)
-local MINIMUM_HOLD_DISTANCE = 0 -- The closest CURRENT_ITEM can be held to the user. 											(NUMBER)
+local MINIMUM_HOLD_DISTANCE = 2 -- The closest CURRENT_ITEM can be held to the user. 											(NUMBER)
 local RAYCAST_HOLD_DISTANCE = 0 -- The max distance an object can be held from the user without clipping into objects.			(NUMBER)
 
 local AXIS = "Y" -- The orientation axis being edited. 																			(STRING)
@@ -304,8 +307,8 @@ local ROTATION_INCREMENT_90 = math.rad(90) --																					(NUMBER)
 local ORIENTATION_INCREMENT = ROTATION_INCREMENT_45 -- The increment that the Orientation value increases at. 					(NUMBER)
 
 local THROW_FORCE = 0 -- The force (velocity) used to throw the CURRENT_ITEM when dropped.										(NUMBER)
-local THROW_FORCE_INCREMENT = 5 -- The amount that THROW_FORCE increases by.													(NUMBER)
-local MAX_THROW_FORCE = 75 -- The max force that can be used to throw the item.													(NUMBER)
+local THROW_FORCE_INCREMENT = 10 -- The amount that THROW_FORCE increases by.													(NUMBER)
+local MAX_THROW_FORCE = 60 -- The max force that can be used to throw the item.													(NUMBER)
 
 local MOVE_MODE = "Camera" --																									(STRING)
 local MOVE_MODES = { --																											(ARRAY)
@@ -403,12 +406,80 @@ AlignOrientation.RigidityEnabled = true
 AlignOrientation.MaxTorque = Vector3.one * math.huge
 AlignOrientation.Responsiveness = Vector3.one * math.huge
 
+local SparkParticlePart = Instance.new("Part")
+SparkParticlePart.Size = Vector3.zero
+SparkParticlePart.Transparency = 1
+SparkParticlePart.Anchored = true
+SparkParticlePart.CanCollide = false
+SparkParticlePart.CanQuery = false
+
+local SparkParticleAttachment = Instance.new("Attachment", SparkParticlePart)
+
+local SparkParticleEmitter = Instance.new("ParticleEmitter", SparkParticleAttachment)
+SparkParticleEmitter.Name = "SparkParticleEmitter"
+SparkParticleEmitter.Texture = "http://www.roblox.com/asset/?id=7587238412"
+SparkParticleEmitter.Enabled = false
+SparkParticleEmitter.Brightness = 1
+SparkParticleEmitter.LightEmission = 1
+SparkParticleEmitter.LightInfluence = 0
+SparkParticleEmitter.Rate = 10
+SparkParticleEmitter.TimeScale = 1
+SparkParticleEmitter.Speed = NumberRange.new(10)
+SparkParticleEmitter.Lifetime = NumberRange.new(0.5, 1)
+SparkParticleEmitter.Rotation = NumberRange.new(0)
+SparkParticleEmitter.RotSpeed = NumberRange.new(0)
+SparkParticleEmitter.SpreadAngle = Vector2.new(20, -20)
+SparkParticleEmitter.Squash = NumberSequence.new(0)
+SparkParticleEmitter.Acceleration = Vector3.new(0, -50, 0)
+SparkParticleEmitter.Shape = Enum.ParticleEmitterShape.Box
+SparkParticleEmitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+SparkParticleEmitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+SparkParticleEmitter.Orientation = Enum.ParticleOrientation.VelocityParallel
+SparkParticleEmitter.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0),
+	NumberSequenceKeypoint.new(0.5, 0),
+	NumberSequenceKeypoint.new(1, 1)
+})
+SparkParticleEmitter.Size = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.25),
+	NumberSequenceKeypoint.new(0.5, 0.25),
+	NumberSequenceKeypoint.new(1, 0)
+})
+SparkParticleEmitter.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(253, 128, 8))
+})
+
+SparkParticlePart.CFrame = owner.Character.Head.CFrame * CFrame.new(0, 0, -5)
+
 MOVE_MODES.Camera = function ()
+	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
+	
+	local Origin = Camera.CFrame.Position
+	local Direction = ScreenRay.Direction * HOLD_DISTANCE
+	
+	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+	
 	local Origin = Camera.CFrame.Position
 	local Direction = Camera.CFrame.LookVector
 	local Distance = math.clamp(HOLD_DISTANCE, MINIMUM_HOLD_DISTANCE, (RAYCAST_HOLD_DISTANCE < MINIMUM_HOLD_DISTANCE and MINIMUM_HOLD_DISTANCE or RAYCAST_HOLD_DISTANCE))
 	
-	return Origin + Direction * Distance
+	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
+	
+	local RotatedSize = Vector3.new(
+        math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
+        math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
+        math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
+    )
+	
+	local Destination = Origin + Direction * Distance
+	
+	if Result then
+		Destination = Destination + Result.Normal * RotatedSize / 2
+	end
+	
+	return Destination
 end
 
 MOVE_MODES.Mouse = function ()
@@ -428,13 +499,15 @@ MOVE_MODES.Mouse = function ()
         math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
     )
 	
-local FinalDestination
-
-if CURRENT_ITEM:IsA("BasePart") then
- FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
-elseif CURRENT_ITEM:IsA("Model") then
- FinalDestination = Result.Position + Result.Normal * RotatedSize / 2 - (CURRENT_ITEM:GetBoundingBox().Position - CURRENT_ITEM:GetPivot().Position)
-end
+	local FinalDestination
+	
+	if CURRENT_ITEM:IsA("BasePart") then
+		FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
+	elseif CURRENT_ITEM:IsA("Model") then
+		local Difference = (CURRENT_ITEM:GetBoundingBox().Position - CURRENT_ITEM:GetPivot().Position)
+		
+		FinalDestination = Result.Position + Result.Normal * RotatedSize / 2 - Difference
+	end
 	
 	return Result ~= nil and FinalDestination or Origin + Direction
 end
