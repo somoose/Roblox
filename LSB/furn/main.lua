@@ -13,7 +13,8 @@ local furniturelinks = {
 	["gnome"] = "gnome.lua",
 	["ps1-rat"] = "ps1-rat.lua",
 	["blåhaj"] = "blåhaj.lua",
-	["potato"] = "potato.lua"
+	["potato"] = "potato.lua",
+	["cookie"] = "cookie.lua"
 }
 
 for name, filename in pairs(furniturelinks) do
