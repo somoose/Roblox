@@ -371,6 +371,4 @@ BTWeld20.Part0 = Part
 PicnicBench.PrimaryPart = Bench
 PicnicBench.Parent = workspace
 
-if owner.Character then PicnicBench:PivotTo(owner.Character.HumanoidRootPart.CFrame + owner.Character.HumanoidRootPart.CFrame.LookVector * 5) end
-
 return PicnicBench
