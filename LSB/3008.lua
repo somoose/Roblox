@@ -1,6 +1,7 @@
 --[[
 
 	Ideas:
+		•
 		
 		Front Couch
 		Floor lamp
@@ -41,32 +42,33 @@
 			Throw velocity
 		
 		GUI that says the name of the CURRENT_ITEM.
+		
+		collision detection customisability !!!!!!!!!!!!!!!!!
 ]]
 
 
 local CollectionService = game:GetService("CollectionService")
-local isHeld_TAG = "isHeld"
+local isHeld_TAG = "__ISHELD__"
 
-local Base = workspace:FindFirstChild("Base")
-
-if Base then
-	CollectionService:AddTag(Base, "__BASE__")
-end
-
-local GrabRemote = Instance.new("RemoteEvent", owner.PlayerGui) -- Used to pick up an item.
+local GrabRemote = Instance.new("RemoteEvent", owner.PlayerGui) -- Used to pick up and drop items.
 GrabRemote.Name = "GrabRemote"
 
 local CheckOwnerRemote = Instance.new("RemoteEvent", owner.PlayerGui)
 CheckOwnerRemote.Name = "CheckOwnerRemote"
+CheckOwnerRemote.OnServerEvent:Connect(function(_, Target)
+	local NetworkOwner = Target:GetNetworkOwner()
+	
+	print(Target.Name .. "'s NetworkOwner is " .. (NetworkOwner ~= nil and NetworkOwner.Name or "Server"))
+end)
 
 local GetServerScriptRemote = Instance.new("RemoteFunction", owner.PlayerGui)
 GetServerScriptRemote.Name = "GetServerScriptRemote"
 GetServerScriptRemote.OnServerInvoke = function () return script end
 
-CheckOwnerRemote.OnServerEvent:Connect(function(_, Target)
-	local NetworkOwner = Target:GetNetworkOwner()
-	
-	print(Target.Name .. "'s NetworkOwner is " .. (NetworkOwner ~= nil and NetworkOwner.Name or "Server"))
+local DeleteRemote = Instance.new("RemoteEvent", owner.PlayerGui)
+DeleteRemote.Name = "DeleteRemote"
+DeleteRemote.OnServerEvent:Connect(function(_, Item)
+	Item:Destroy()
 end)
 
 local PreviousItem = nil
@@ -79,6 +81,7 @@ end
 
 local CanCollide = false
 local Transparency = 0.5
+local HumanoidSit = true
 
 GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
 	if Item then -- User is picking up Item.
@@ -137,7 +140,7 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 						if not Part.Disabled then Part.Disabled = true end
 					end
 				elseif Part:IsA("Humanoid") then
-					Part.Sit = true
+					if Part.Sit ~= HumanoidSit then Part.Sit = HumanoidSit end
 				end
 			end
 			
@@ -257,7 +260,23 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 
-local ISHELD_TAG = "isHeld" -- The CollectionService tag applied to items when they're picked up.
+local BlacklistedTags = {
+	ISHELD_TAG = "__ISHELD__", -- The CollectionService tag applied to items when they're picked up.
+	BASE_TAG = "__BASE__",
+	SPAWN_TAG = "__SPAWNLOCATION__"
+}
+
+local Base = workspace:FindFirstChild("Base")
+
+if Base then
+	CollectionService:AddTag(Base, BlacklistedTags.BASE_TAG)
+	
+	local SpawnLocation = Base:FindFirstChildWhichIsA("SpawnLocation")
+	
+	if SpawnLocation then
+		CollectionService:AddTag(SpawnLocation, BlacklistedTags.SPAWN_TAG)
+	end
+end
 
 local FilterDescendantsInstances = {owner.Character} -- The instances that the hold distance raycast ignores.					(ARRAY)
 local RAYCASTPARAMS = RaycastParams.new() --																					(RAYCASTPARAMS)
@@ -273,6 +292,7 @@ local Mouse = owner:GetMouse()
 local GrabRemote = PlayerGui:WaitForChild("GrabRemote") -- Used to pick up an item.
 local CheckOwnerRemote = PlayerGui:WaitForChild("CheckOwnerRemote") -- Used to check the NetworkOwner of Mouse.Target
 local GetServerScriptRemote = PlayerGui:WaitForChild("GetServerScriptRemote")
+local DeleteRemote = PlayerGui:WaitForChild("DeleteRemote")
 
 local ServerScript = GetServerScriptRemote:InvokeServer()
 
@@ -293,6 +313,7 @@ local MUST_BE_UNLOCKED = false -- If true, you can only pick up unlocked items.	
 local MUST_BE_IN_RANGE = true -- If true, you can only pick up items less than or equal to MAXIMUM_GRAB_DISTANCE away.			(BOOLEAN)
 local MAXIMUM_GRAB_DISTANCE = 30 -- The max distance away from which an item can be picked up. 									(NUMBER)
 
+local MOVE_LERP_RANGE = NumberRange.new(0.25, 0.3)
 local HOLD_DISTANCE = 5 -- The distance the item is away from the user when they are holding it. 								(NUMBER)
 local HOLD_DISTANCE_INCREMENT = 0.5 -- The increment at which the HOLD_DISTANCE increases and decreases. 						(NUMBER)
 local MAXIMUM_HOLD_DISTANCE = 25 -- The furthest CURRENT_ITEM can be held from the user. 										(NUMBER)
@@ -513,7 +534,7 @@ MOVE_MODES.Mouse = function ()
 end
 
 FUNCTIONS.IsFirstPerson = function ()
-	return (owner.Character.Head.Position - Camera.CFrame.Position).Magnitude < 2
+	return (owner.Character.Head.Position - Camera.CFrame.Position).Magnitude < 0.6
 end
 
 FUNCTIONS.ParentBodyMovers = function (Parent)
@@ -539,14 +560,16 @@ FUNCTIONS.ReturnPrimaryPart = function (Model)
 end
 
 FUNCTIONS.FitsCriteria = function (Item) -- Check if an item fits the criteria for being picked up.
+	for _, BlacklistedTag in pairs(BlacklistedTags) do
+		if CollectionService:HasTag(Item, BlacklistedTag) then return end
+	end
+	
 	if Item:IsA("BasePart") then
 		if MUST_BE_UNLOCKED and Item.Locked then return end
 		if MUST_BE_IN_RANGE and (Item.Position - owner.Character.Head.Position).Magnitude > MAXIMUM_GRAB_DISTANCE then return end
-		if CollectionService:HasTag(Item, ISHELD_TAG) then return end
 	elseif Item:IsA("Model") then
 		if MUST_BE_UNLOCKED then for _, BasePart in pairs(Item:GetDescendants()) do if BasePart:IsA("BasePart") then if BasePart.Locked then return end end end end
 		if MUST_BE_IN_RANGE and (FUNCTIONS.ReturnPrimaryPart(Item).Position - owner.Character.Head.Position).Magnitude > MAXIMUM_GRAB_DISTANCE then return end
-		if CollectionService:HasTag(Item, ISHELD_TAG) then return end
 	else
 		return
 	end
@@ -724,7 +747,7 @@ FUNCTIONS.ON_PICKUP = function ()
 	
 	GrabRemote:FireServer(CURRENT_ITEM, ALTDOWN)
 	
-	repeat task.wait() until CollectionService:HasTag(CURRENT_ITEM, ISHELD_TAG)
+	repeat task.wait() until CollectionService:HasTag(CURRENT_ITEM, BlacklistedTags.ISHELD_TAG)
 	
 	HOLDING = true
 	
@@ -744,7 +767,7 @@ FUNCTIONS.HOLDING = function ()
 	local OldCFrame = CURRENT_ITEM:GetPivot()
 	local Distance = (NewCFrame.Position - OldCFrame.Position).Magnitude
 	
-	NewCFrame = OldCFrame:Lerp(NewCFrame, math.clamp(Distance, 0.5, 1))
+	NewCFrame = OldCFrame:Lerp(NewCFrame, math.clamp(Distance, MOVE_LERP_RANGE.Min, MOVE_LERP_RANGE.Max))
 	
 	CURRENT_ITEM:PivotTo(NewCFrame)
 	
@@ -810,7 +833,7 @@ FUNCTIONS.ON_DROP = function ()
 		end
 		
 		task.wait()
-	until not CollectionService:HasTag(CURRENT_ITEM, ISHELD_TAG)
+	until not CollectionService:HasTag(CURRENT_ITEM, BlacklistedTags.ISHELD_TAG)
 	
 	HOLDING = false
 	
@@ -913,8 +936,10 @@ GUI.InputBegan = function (Input, GPE)
 				end
 			elseif Input.KeyCode == DELETE_INPUT then
 				if CURRENT_ITEM then
-					--GUI.InputEnded(PICKUPINPUTDOWN, False)
+					local Item = CURRENT_ITEM
+					
 					FUNCTIONS.ON_DROP()
+					DeleteRemote:FireServer(Item)
 				end
 			end
 		end
@@ -987,10 +1012,13 @@ UserInputService.InputEnded:Connect(GUI.InputEnded)
 RunService.PostSimulation:Connect(function(Delta)
 	-- Update the TARGET variable.
 	FUNCTIONS.UpdateTarget()
-	Highlight.Adornee = TARGET
 	
 	if HOLDING then
 		FUNCTIONS.UpdateRaycastHoldDistance()
+		
+		Highlight.Adornee = nil
+	else
+		Highlight.Adornee = TARGET
 	end
 	
 	if FUNCTIONS.IsFirstPerson() then
