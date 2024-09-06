@@ -53,7 +53,7 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled) -- 
 
 				Clone:PivotTo(Destination)
 
-				Clone.Parent = script
+				Clone.Parent = workspace
 			end
 
 			print("Spawned: " .. Amount .. " " .. ASSET.Name .. "'s at scale " .. Scale)
@@ -102,7 +102,7 @@ table.insert(COMMANDS, {
 	Description = "Prints all the spawnable furniture items.",
 	Arguments = "",
 	Function = function ()
-		print(Keys)
+		print(ASSET_LIST)
 	end
 })
 
