@@ -1223,6 +1223,7 @@ PrimaryPart.CFrame = Base.CFrame * CFrame.Angles(0, 0, math.rad(-90))
 PrimaryPart.Parent = PaperBin
 
 PaperBin.PrimaryPart = PrimaryPart
+PaperBin.Parent = workspace
 
 for _, Part in pairs(PaperBin:GetChildren()) do
 	if Part:IsA("BasePart") then
