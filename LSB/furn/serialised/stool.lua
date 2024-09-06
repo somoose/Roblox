@@ -100,6 +100,4 @@ BTWeld4.Part0 = Top
 Stool.PrimaryPart = Top
 Stool.Parent = workspace
 
-if owner.Character then Stool:PivotTo(owner.Character.HumanoidRootPart.CFrame + owner.Character.HumanoidRootPart.CFrame.LookVector * 5) end
-
 return Stool
