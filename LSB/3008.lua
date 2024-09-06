@@ -348,13 +348,14 @@ local CHANGE_MODE_INPUT = Enum.KeyCode.Q --																						(ENUM)
 local DELETE_INPUT = Enum.KeyCode.X --																							(ENUM)
 
 --		Keys Down Variables
-local PICKUP_INPUT_DOWN = false -- True when the E key is pressed. 																(BOOLEAN)
+local PICKUP_INPUT_DOWN = false -- True when the pickup input is held down. 													(BOOLEAN)
 local CTRL_DOWN = false -- True when the left control button is held down. 														(BOOLEAN)
 local SHIFT_DOWN = false -- True when the left shift button is held down. 														(BOOLEAN)
 local ALT_DOWN = false -- True when the left alt button is held down.															(BOOLEAN)
+local ROTATE_INPUT_DOWN = false -- True when the rotate input is held down.
 
 local PICKUP_INPUTOBJECT = {UserInputType = Enum.UserInputType.Keyboard, KeyCode = PICKUP_INPUT} --	PICKUP Input emulation.		(ARRAY)
-local FIRSTINPUTTARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
+local FIRST_INPUT_TARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
 
 -- 		GUI Variables
 local PICKUP_HOLD = 0.1 -- The amount of time in seconds it takes GUI.Progress.Value to reach 360. 								(NUMBER)
@@ -363,9 +364,9 @@ local PICKUP_TWEEN = nil -- The tween used to lerp the GUI.PROGRESS value. Updat
 
 
 -- 		Event Functions
-FUNCTIONS.ON_PICKUP = nil -- The function run when an item is picked up.														(FUNCTION)
+FUNCTIONS.PICKUP = nil -- The function run when an item is picked up.															(FUNCTION)
 FUNCTIONS.HOLDING = nil -- The function run while an item is being held.														(FUNCTION)
-FUNCTIONS.ON_DROP = nil -- The function run when an item is dropped.															(FUNCTION)
+FUNCTIONS.DROP = nil -- The function run when an item is dropped.																(FUNCTION)
 
 FUNCTIONS.ReturnPrimaryPart = nil -- Returns the PrimaryPart of a Model.														(FUNCTION)
 FUNCTIONS.UpdateTarget = nil -- Updates the TARGET variable.																	(FUNCTION)
@@ -474,6 +475,14 @@ SparkParticleEmitter.Color = ColorSequence.new({
 SparkParticlePart.CFrame = owner.Character.Head.CFrame * CFrame.new(0, 0, -5)
 
 MOVE_MODES.Camera = function ()
+	local Origin = Camera.CFrame.Position
+	local Direction = Camera.CFrame.LookVector
+	local Distance = math.clamp(HOLD_DISTANCE, MINIMUM_HOLD_DISTANCE, (RAYCAST_HOLD_DISTANCE < MINIMUM_HOLD_DISTANCE and MINIMUM_HOLD_DISTANCE or RAYCAST_HOLD_DISTANCE))
+	
+	local Destination = Origin + Direction * Distance
+	
+	if COLLISION_ENABLED then
+	
 	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
 	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
 	
@@ -482,10 +491,6 @@ MOVE_MODES.Camera = function ()
 	
 	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
 	
-	local Origin = Camera.CFrame.Position
-	local Direction = Camera.CFrame.LookVector
-	local Distance = math.clamp(HOLD_DISTANCE, MINIMUM_HOLD_DISTANCE, (RAYCAST_HOLD_DISTANCE < MINIMUM_HOLD_DISTANCE and MINIMUM_HOLD_DISTANCE or RAYCAST_HOLD_DISTANCE))
-	
 	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
 	
 	local RotatedSize = Vector3.new(
@@ -493,8 +498,6 @@ MOVE_MODES.Camera = function ()
         math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
         math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
     )
-	
-	local Destination = Origin + Direction * Distance
 	
 	if Result then
 		Destination = Destination + Result.Normal * RotatedSize / 2
@@ -534,7 +537,7 @@ MOVE_MODES.Mouse = function ()
 end
 
 FUNCTIONS.IsFirstPerson = function ()
-	return (owner.Character.Head.Position - Camera.CFrame.Position).Magnitude < 0.6
+	return owner.Character.Head.LocalTransparencyModifier == 1
 end
 
 FUNCTIONS.ParentBodyMovers = function (Parent)
@@ -582,7 +585,7 @@ FUNCTIONS.UpdateTarget = function () -- Sets TARGET to the suitable Part or Mode
 		local MouseTarget = Mouse.Target
 		
 		if MouseTarget then
-			TARGET = FUNCTIONS.FitsCriteria(ALTDOWN and MouseTarget or (MouseTarget:FindFirstAncestorOfClass("Model") or MouseTarget))
+			TARGET = FUNCTIONS.FitsCriteria(ALT_DOWN and MouseTarget or (MouseTarget:FindFirstAncestorOfClass("Model") or MouseTarget))
 		else
 			TARGET = nil
 		end
@@ -741,11 +744,11 @@ GUI.UpdateProgressBar() -- Ensure that the progress has been updated to 0.
 
 
 -- // Event Functions \\
-FUNCTIONS.ON_PICKUP = function ()
+FUNCTIONS.PICKUP = function ()
 	CURRENT_ITEM = TARGET
 	FUNCTIONS.EditFilterDescendantsInstances(true, CURRENT_ITEM)
 	
-	GrabRemote:FireServer(CURRENT_ITEM, ALTDOWN)
+	GrabRemote:FireServer(CURRENT_ITEM, ALT_DOWN)
 	
 	repeat task.wait() until CollectionService:HasTag(CURRENT_ITEM, BlacklistedTags.ISHELD_TAG)
 	
@@ -761,6 +764,12 @@ FUNCTIONS.ON_PICKUP = function ()
 end
 
 FUNCTIONS.HOLDING = function ()
+	if ROTATE_INPUT_DOWN and ALT_DOWN then
+		AlignOrientation.CFrame = ORIENTATION
+		
+		return
+	end
+	
 	local Destination = MOVE_MODES[MOVE_MODE]()
 	local NewCFrame = CFrame.new(Destination) * ORIENTATION
 	
@@ -820,7 +829,7 @@ FUNCTIONS.HOLDING = function ()
 	end
 end
 
-FUNCTIONS.ON_DROP = function ()
+FUNCTIONS.DROP = function ()
 	GrabRemote:FireServer(false, false, TOUCHING_PARTS)
 	
 	local startwait = tick()
@@ -862,7 +871,7 @@ GUI.InputBegan = function (Input, GPE)
 	if not GPE then
 		if Input.UserInputType == Enum.UserInputType.Keyboard then
 			if Input.KeyCode == PICKUP_INPUT then
-				PICKUPINPUTDOWN = true
+				PICKUP_INPUT_DOWN = true
 				
 				if CURRENT_ITEM then
 					DROPPING = true
@@ -878,18 +887,18 @@ GUI.InputBegan = function (Input, GPE)
 					until not DROPPING
 				else
 					if TARGET then
-						FIRSTINPUTTARGET = TARGET
+						FIRST_INPUT_TARGET = TARGET
 						GUI.CircularProgressBar.Visible = true
 						PICKUP_TWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(PICKUP_HOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
 						PICKUP_TWEEN:Play()
 					end
 				end
 			elseif Input.KeyCode == Enum.KeyCode.LeftControl then
-				CTRLDOWN = true
+				CTRL_DOWN = true
 			elseif Input.KeyCode == Enum.KeyCode.LeftShift then
-				SHIFTDOWN = true
+				SHIFT_DOWN = true
 			elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
-				ALTDOWN = true
+				ALT_DOWN = true
 				
 				Highlight.FillColor = HighlightColorRed.FillColor
 				Highlight.OutlineColor = HighlightColorRed.OutlineColor
@@ -906,8 +915,21 @@ GUI.InputBegan = function (Input, GPE)
 			elseif Input.KeyCode == Enum.KeyCode.Three then
 				AXIS = "Z"
 			elseif Input.KeyCode == ROTATE_INPUT then
+				ROTATE_INPUT_DOWN = true
+				
+				if ALT_DOWN then
+					repeat
+						
+						
+						task.wait()
+					until not ALT_DOWN or not ROTATE_INPUT_DOWN
+					
+					return
+				end
+				
 				RotateSound:Play()
-				if SHIFTDOWN and CTRLDOWN then
+				
+				if SHIFT_DOWN and CTRL_DOWN then
 					ORIENTATION = CFrame.new()
 					return
 				end
@@ -920,7 +942,7 @@ GUI.InputBegan = function (Input, GPE)
 					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATION_INCREMENT)
 				end
 			elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
-				if not CTRLDOWN then
+				if not CTRL_DOWN then
 					if owner.CameraMode == Enum.CameraMode.Classic then
 						owner.CameraMode = Enum.CameraMode.LockFirstPerson
 					elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
@@ -938,7 +960,7 @@ GUI.InputBegan = function (Input, GPE)
 				if CURRENT_ITEM then
 					local Item = CURRENT_ITEM
 					
-					FUNCTIONS.ON_DROP()
+					FUNCTIONS.DROP()
 					DeleteRemote:FireServer(Item)
 				end
 			end
@@ -972,14 +994,14 @@ GUI.InputEnded = function (Input, GPE)
 					-- ||||||||||||||||||||||||||||||||| User is dropping CURRENT_ITEM. |||||||||||||||||||||||||||||||||
 					-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\///////////////////////////////////////////////
 					
-					FUNCTIONS.ON_DROP()
+					FUNCTIONS.DROP()
 					DROPPING = false
 					THROW_FORCE = 0
 					
 				end
 				
-				PICKUPINPUTDOWN = false
-				FIRSTINPUTTARGET = nil
+				PICKUP_INPUT_DOWN = false
+				FIRST_INPUT_TARGET = nil
 				
 				if PICKUP_TWEEN then
 					GUI.CircularProgressBar.Visible = false
@@ -988,14 +1010,16 @@ GUI.InputEnded = function (Input, GPE)
 					GUI.PROGRESS.Value = 0
 				end
 			elseif Input.KeyCode == Enum.KeyCode.LeftControl then
-				CTRLDOWN = false
+				CTRL_DOWN = false
 			elseif Input.KeyCode == Enum.KeyCode.LeftShift then
-				SHIFTDOWN = false
+				SHIFT_DOWN = false
 			elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
-				ALTDOWN = false
+				ALT_DOWN = false
 				
 				Highlight.FillColor = HighlightColorWhite.FillColor
 				Highlight.OutlineColor = HighlightColorWhite.OutlineColor
+			elseif Input.KeyCode == ROTATE_INPUT then
+				ROTATE_INPUT_DOWN = false
 			end
 		end
 	end
@@ -1027,13 +1051,13 @@ RunService.PostSimulation:Connect(function(Delta)
 		MOVE_MODE = "Mouse"
 	end
 	
-	if SHIFTDOWN and not CTRLDOWN then
+	if SHIFT_DOWN and not CTRL_DOWN then
 		ORIENTATION_INCREMENT = ROTATION_INCREMENT_90
-	elseif CTRLDOWN and not SHIFTDOWN then
+	elseif CTRL_DOWN and not SHIFT_DOWN then
 		ORIENTATION_INCREMENT = ROTATION_INCREMENT_15
-	elseif not SHIFTDOWN and not CTRLDOWN then
+	elseif not SHIFT_DOWN and not CTRL_DOWN then
 		ORIENTATION_INCREMENT = ROTATION_INCREMENT_45
-	elseif SHIFTDOWN and CTRLDOWN then
+	elseif SHIFT_DOWN and CTRL_DOWN then
 		ORIENTATION_INCREMENT = ROTATION_INCREMENT_45 -- not used.
 	end
 	
@@ -1063,9 +1087,9 @@ RunService.PostSimulation:Connect(function(Delta)
 		end
 	end
 	
-	if PICKUPINPUTDOWN then
+	if PICKUP_INPUT_DOWN then
 		if TARGET then
-			if TARGET == FIRSTINPUTTARGET then
+			if TARGET == FIRST_INPUT_TARGET then
 				if not CURRENT_ITEM then
 					if GUI.PROGRESS.Value > 359 then
 					
@@ -1073,7 +1097,7 @@ RunService.PostSimulation:Connect(function(Delta)
 						-- |||||||||||||||||||||| User is picking up TARGET. Despite being in a RunService loop, this only runs once. ||||||||||||||||||||||
 						-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////////////////////
 						
-						FUNCTIONS.ON_PICKUP()
+						FUNCTIONS.PICKUP()
 						
 					end
 				end
@@ -1081,4 +1105,6 @@ RunService.PostSimulation:Connect(function(Delta)
 		end
 	end
 end)
+
+print(FUNCTIONS)
 ]], owner.PlayerGui)
