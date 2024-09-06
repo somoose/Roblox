@@ -347,7 +347,7 @@ Beam.Attachment1 = Attachment1
 function UpdateConveyor ()
 	Conveyor1.AssemblyLinearVelocity = Conveyor1.CFrame.LookVector * SPEED.Value * 2
 	Beam.TextureSpeed = SPEED.Value
-	Beam.Width0, Conveyor.Width1 = Conveyor1.Size.X, Conveyor1.Size.X
+	Beam.Width0, Beam.Width1 = Conveyor1.Size.X, Conveyor1.Size.X
 end
 
 UpdateConveyor()
