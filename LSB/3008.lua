@@ -329,7 +329,7 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 end
 
 local COMMAND_PREFIX = nil
-local COMMAND_SEPARATOR = " "
+local COMMAND_SEPARATOR = "/"
 
 local COMMANDS = {
 	{
@@ -384,7 +384,7 @@ local COMMANDS = {
 	}
 }
 
-ChatCommandRemote.OnServerEvent:Connect(function(_, Text)
+FUNCTIONS.RUN_COMMAND = function (Text)
 	if COMMAND_PREFIX then
 		if Text:sub(1, 1):lower() ~= COMMAND_PREFIX:lower() then return end
 		Text = Text:sub(2, #Text)
@@ -398,6 +398,10 @@ ChatCommandRemote.OnServerEvent:Connect(function(_, Text)
 			Command.FUNCTION(table.unpack(Sections))
 		end
 	end
+end
+
+ChatCommandRemote.OnServerEvent:Connect(function(_, Text)
+	FUNCTIONS.RUN_COMMAND(Text)
 end)
 
 NLS([[
@@ -406,7 +410,7 @@ local FUNCTIONS = {}
 local COMMANDS = nil -- Only client sided commands. Server sided commands are above.
 
 local COMMAND_PREFIX = nil
-local COMMAND_SEPARATOR = " "
+local COMMAND_SEPARATOR = "/"
 
 
 -- Services
@@ -462,7 +466,8 @@ local HOLDING = false -- True when the user is holding an item.																	
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
 local THROWING_ENABLED = false -- When true, holding E before releasing it in order to drop an item, will give it velocity.		(STRING)
-local COLLISION_ENABLED = true -- When true, the CURRENT_ITEM will be prevented from clipping into objects.						(BOOLEAN)
+local NORMAL_COLLISION_ENABLED = true -- When true, the CURRENT_ITEM will be offset based on the normal the mouse is on.		(BOOLEAN)
+local COLLISION_ENABLED = true -- When true, CURRENT_ITEM will be prevented from clipping through objects
 local WELDING_ENABLED = true -- When true, user is able to weld CURRENT_ITEM to other items.									(BOOLEAN)
 local TOUCHING = false -- True when the CURRENT_ITEM is touching other parts.													(BOOLEAN)
 local TOUCHING_PARTS = {} -- The parts of CURRENT_ITEM and the parts they're in contact with.									(ARRAY)
@@ -489,6 +494,10 @@ local THROW_FORCE = 0 -- The force (velocity) used to throw the CURRENT_ITEM whe
 local THROW_FORCE_INCREMENT = 10 -- The amount that THROW_FORCE increases by.													(NUMBER)
 local MAX_THROW_FORCE = 60 -- The max force that can be used to throw the item.													(NUMBER)
 
+local DEFAULT_FIELD_OF_VIEW = 70
+local ZOOMED_FIELD_OF_VIEW = 10
+local FIELD_OF_VIEW_LERP_SPEED = 0.125
+
 local MOVE_MODE = "Camera" --																									(STRING)
 local MOVE_MODES = { --																											(ARRAY)
 	["Camera"] = nil, --																										(FUNCTION)
@@ -511,6 +520,7 @@ local CTRL_DOWN = false -- True when the left control button is held down. 					
 local SHIFT_DOWN = false -- True when the left shift button is held down. 														(BOOLEAN)
 local ALT_DOWN = false -- True when the left alt button is held down.															(BOOLEAN)
 local ROTATE_INPUT_DOWN = false -- True when the rotate input is held down.
+local ZOOM_INPUT_DOWN = false -- True when the zoom input is held down.
 
 local PICKUP_INPUTOBJECT = {UserInputType = Enum.UserInputType.Keyboard, KeyCode = PICKUP_INPUT} --	PICKUP Input emulation.		(ARRAY)
 local FIRST_INPUT_TARGET = nil -- The first TARGET detected when the E key is pressed. 											(INSTANCE)
@@ -533,7 +543,7 @@ FUNCTIONS.UpdateRaycastHoldDistance = nil -- Updates RAYCASTHOLD_DISTANCE							
 FUNCTIONS.FitsCriteria = nil --	Returns true if the parsed item fits pick up criteria.											(FUNCTION)
 FUNCTIONS.EditFilterDescendantsInstances = nil -- Adds and removes items to the RAYCASTPARAMS.FilterDescendantsInstances		(FUNCTION)
 FUNCTIONS.ParentBodyMovers = nil --	Parents the BodyMovers to the item parsed to it.											(FUNCTION)
---FUNCTIONS.GetModelMass = nil
+FUNCTIONS.Lerp = function (a, b, t) return a + (b - a) * t end
 
 
 --		Audios
@@ -781,7 +791,7 @@ end
 
 COMMANDS = {
 	{
-		CODE = "collision",
+		CODE = "clipping",
 		FUNCTION = function (Boolean)
 			COLLISION_ENABLED = Boolean == "true" and true or false
 		end
@@ -790,6 +800,12 @@ COMMANDS = {
 		CODE = "welding",
 		FUNCTION = function (Boolean)
 			WELDING_ENABLED = Boolean == "true" and true or false
+		end
+	},
+	{
+		CODE = "collision",
+		FUNCTION = function (Boolean)
+			NORMAL_COLLISION_ENABLED = Boolean == "true" and true or false
 		end
 	}
 }
@@ -1235,6 +1251,8 @@ GUI.InputBegan = function (Input, GPE)
 			if TARGET or CURRENT_ITEM then
 				DeleteRemote:FireServer(CURRENT_ITEM or TARGET)
 			end
+		elseif Input.KeyCode == ZOOM_INPUT then
+			ZOOM_INPUT_DOWN = true
 		end
 	end
 end
@@ -1291,6 +1309,8 @@ GUI.InputEnded = function (Input, GPE)
 				Highlight.OutlineColor = HighlightColorWhite.OutlineColor
 			elseif Input.KeyCode == ROTATE_INPUT then
 				ROTATE_INPUT_DOWN = false
+			elseif Input.KeyCode == ZOOM_INPUT then
+				ZOOM_INPUT_DOWN = false
 			end
 		end
 	end
@@ -1374,6 +1394,12 @@ RunService.PostSimulation:Connect(function(Delta)
 				end
 			end
 		end
+	end
+
+	if ZOOM_INPUT_DOWN then
+		Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, ZOOMED_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
+	else
+		Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, DEFAULT_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
 	end
 end)
 ]], owner.PlayerGui)
