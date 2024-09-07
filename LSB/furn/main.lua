@@ -69,7 +69,7 @@ FUNCTIONS.ClearAllModels = function ()
 	for _, Descendant in pairs(workspace:GetDescendants()) do
 		if Descendant:IsA("BasePart") or Descendant:IsA("Model") then
 			if CollectionService:HasTag(Descendant, FURN_TAG) then
-				Model:Destroy()
+				Descendant:Destroy()
 
 				task.wait()
 			end
