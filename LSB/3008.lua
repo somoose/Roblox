@@ -42,24 +42,17 @@
 			Throw velocity
 		
 		GUI that says the name of the CURRENT_ITEM.
-		
-		collision detection customisability !!!!!!!!!!!!!!!!!
 ]]
 
 
+local FUNCTIONS = {}
+
 local CollectionService = game:GetService("CollectionService")
 local isHeld_TAG = "__ISHELD__"
+local FURN_TAG = "__FURN__"
 
 local GrabRemote = Instance.new("RemoteEvent", owner.PlayerGui) -- Used to pick up and drop items.
 GrabRemote.Name = "GrabRemote"
-
-local CheckOwnerRemote = Instance.new("RemoteEvent", owner.PlayerGui)
-CheckOwnerRemote.Name = "CheckOwnerRemote"
-CheckOwnerRemote.OnServerEvent:Connect(function(_, Target)
-	local NetworkOwner = Target:GetNetworkOwner()
-	
-	print(Target.Name .. "'s NetworkOwner is " .. (NetworkOwner ~= nil and NetworkOwner.Name or "Server"))
-end)
 
 local GetServerScriptRemote = Instance.new("RemoteFunction", owner.PlayerGui)
 GetServerScriptRemote.Name = "GetServerScriptRemote"
@@ -70,6 +63,9 @@ DeleteRemote.Name = "DeleteRemote"
 DeleteRemote.OnServerEvent:Connect(function(_, Item)
 	Item:Destroy()
 end)
+
+local ChatCommandRemote = Instance.new("RemoteEvent", owner.PlayerGui)
+ChatCommandRemote.Name = "ChatCommandRemote"
 
 local PreviousItem = nil
 local PreviousNetworkOwners = {}
@@ -83,7 +79,7 @@ local CanCollide = false
 local Transparency = 0.5
 local HumanoidSit = true
 
-GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
+FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
 		
@@ -246,14 +242,175 @@ GrabRemote.OnServerEvent:Connect(function(_, Item: Instance, BreakJoints: Boolea
 			CollectionService:RemoveTag(PreviousItem, isHeld_TAG)
 		end
 	end
+end
+
+GrabRemote.OnServerEvent:Connect(FUNCTIONS.GrabRemoteServerEvent)
+
+local ID = 131302043244796
+local FURN_ASSETS = LoadAssets(ID)
+local ASSET_LIST = FURN_ASSETS:GetArray()
+
+FUNCTIONS.ReturnPlayer = function (Name)
+	if not Name then return end
+	
+	for _, Player in pairs(Players:GetPlayers()) do
+		if Player.Name:lower():sub(1, #Name) == Name:lower() then return Player end
+		if Player.DisplayName:lower():sub(1, #Name) == Name:lower() then return Player end
+	end
+end
+
+FUNCTIONS.ClearAllModels = function ()
+	for _, Descendant in pairs(workspace:GetDescendants()) do
+		if Descendant:IsA("BasePart") or Descendant:IsA("Model") then
+			if CollectionService:HasTag(Descendant, FURN_TAG) then
+				Descendant:Destroy()
+
+				task.wait()
+			end
+		end
+	end
+end
+
+FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
+	Index = Index or ASSET_LIST[math.random(#ASSET_LIST)]
+	Amount = tonumber(Amount) or 1
+	Scale = tonumber(Scale) or 1
+	SeatDisabled = SeatDisabled == "true" and true or false
+
+	local CharacterSize = owner.Character:GetExtentsSize()
+	local CharacterPivot = owner.Character:GetPivot()
+
+	for _, ASSET in pairs(ASSET_LIST) do
+		if ASSET.Name:lower():sub(1, #AssetName) == AssetName:lower() then
+			for i = 1, Amount do
+				local Clone = FURN_ASSETS:Get(ASSET.Name)
+				CollectionService:AddTag(Clone, FURN_TAG)
+
+				for _, Part in pairs(Clone:GetDescendants()) do
+					if Part:IsA("BasePart") then
+						Part.Anchored = false
+					end
+					
+					if SeatDisabled then
+						if Part:IsA("Seat") or Part:IsA("VehicleSeat") then
+							Part.Disabled = true
+						end
+					end
+				end
+				
+				Clone:ScaleTo(Scale)
+				Clone.PrimaryPart = Clone.PrimaryPart or Clone:FindFirstChildWhichIsA("BasePart")
+
+				Clone.Parent = script
+
+				local CloneSize = Clone:GetExtentsSize()
+				local PivotDifference = Clone:GetBoundingBox().Position - Clone.PrimaryPart.Position
+
+				Clone.Parent = nil
+
+				local Destination = owner.Character:GetBoundingBox() * CFrame.new(
+					0,
+					CloneSize.Y/2 - CharacterSize.Y/2 + (i - 1) * CloneSize.Y,
+					-(CharacterSize.Z + CloneSize.Z)/2
+				) * CFrame.new(-PivotDifference)
+
+				Clone:PivotTo(Destination)
+
+				Clone.Parent = workspace
+			end
+
+			print("Spawned: " .. Amount .. " " .. ASSET.Name .. "'s at scale " .. Scale)
+
+			return
+		end
+	end
+
+	warn("Loop finished without creating anything.")
+end
+
+local COMMAND_PREFIX = nil
+local COMMAND_SEPARATOR = " "
+
+local COMMANDS = {
+	{
+		CODE = "bring",
+		ARGUMENTS = "player1" .. COMMAND_SEPARATOR .. "player2" .. COMMAND_SEPARATOR .. "...",
+		DESCRIPTION = "Brings the parsed players.",
+		FUNCTION = function (...)
+			local Names = {...}
+			
+			for _, Name in pairs(Names) do
+				local Target = FUNCTIONS.ReturnPlayer(Name)
+
+				if Target then
+					if Target.Character then
+						Target.Character:PivotTo(owner.Character:GetPivot())
+					end
+				end
+			end
+		end
+	},
+	{
+		CODE = "spawn",
+		FUNCTION = FUNCTIONS.SpawnFurniture
+	},
+	{
+		CODE = "clear",
+		FUNCTION = FUNCTIONS.ClearAllModels
+	},
+	{
+		CODE = "transparency",
+		FUNCTION = function (NewTransparency)
+			Transparency = tonumber(NewTransparency or 0.5) or 0.5
+		end
+	},
+	{
+		CODE = "sit",
+		FUNCTION = function (Boolean)
+			HumanoidSit = Boolean == "true" and true or false
+		end
+	},
+	{
+		CODE = "cancollide",
+		FUNCTION = function (Boolean)
+			CanCollide = Boolean == "true" and true or false
+		end
+	},
+	{
+		CODE = "get",
+		FUNCTION = function ()
+			print(ASSET_LIST)
+		end
+	}
+}
+
+ChatCommandRemote.OnServerEvent:Connect(function(_, Text)
+	if COMMAND_PREFIX then
+		if Text:sub(1, 1):lower() ~= COMMAND_PREFIX:lower() then return end
+		Text = Text:sub(2, #Text)
+	end
+	
+	local Sections = Text:split(COMMAND_SEPARATOR)
+	
+	for _, Command in pairs(COMMANDS) do
+		if Sections[1]:lower() == Command.CODE:lower() then
+			table.remove(Sections, 1)
+			Command.FUNCTION(table.unpack(Sections))
+		end
+	end
 end)
 
 NLS([[
 local GUI = {}
 local FUNCTIONS = {}
+local COMMANDS = nil -- Only client sided commands. Server sided commands are above.
+
+local COMMAND_PREFIX = nil
+local COMMAND_SEPARATOR = " "
 
 
 -- Services
+local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -290,9 +447,9 @@ local Mouse = owner:GetMouse()
 
 -- Remotes
 local GrabRemote = PlayerGui:WaitForChild("GrabRemote") -- Used to pick up an item.
-local CheckOwnerRemote = PlayerGui:WaitForChild("CheckOwnerRemote") -- Used to check the NetworkOwner of Mouse.Target
 local GetServerScriptRemote = PlayerGui:WaitForChild("GetServerScriptRemote")
 local DeleteRemote = PlayerGui:WaitForChild("DeleteRemote")
+local ChatCommandRemote = PlayerGui:WaitForChild("ChatCommandRemote")
 
 local ServerScript = GetServerScriptRemote:InvokeServer()
 
@@ -304,6 +461,7 @@ local CURRENT_ITEM = nil -- Current item being held. 																			(INSTANC
 local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
+local THROWING_ENABLED = false -- When true, holding E before releasing it in order to drop an item, will give it velocity.		(STRING)
 local COLLISION_ENABLED = true -- When true, the CURRENT_ITEM will be prevented from clipping into objects.						(BOOLEAN)
 local WELDING_ENABLED = true -- When true, user is able to weld CURRENT_ITEM to other items.									(BOOLEAN)
 local TOUCHING = false -- True when the CURRENT_ITEM is touching other parts.													(BOOLEAN)
@@ -342,10 +500,10 @@ local PICKUP_INPUT = Enum.KeyCode.E --																							(ENUM)
 local ROTATE_INPUT = Enum.KeyCode.R --																							(ENUM)
 local INCREASEDISTANCE_INPUT = Enum.KeyCode.Five --																				(ENUM)
 local DECREASEDISTANCE_INPUT = Enum.KeyCode.Four --																				(ENUM)
-local CHECK_NETWORK_OWNER_INPUT = Enum.KeyCode.Z --																				(ENUM)
 local CHANGE_CAMERAMODE_INPUT = Enum.KeyCode.C --																				(ENUM)
 local CHANGE_MODE_INPUT = Enum.KeyCode.Q --																						(ENUM)
 local DELETE_INPUT = Enum.KeyCode.X --																							(ENUM)
+local ZOOM_INPUT = Enum.KeyCode.Z --																								(ENUM)
 
 --		Keys Down Variables
 local PICKUP_INPUT_DOWN = false -- True when the pickup input is held down. 													(BOOLEAN)
@@ -361,19 +519,21 @@ local FIRST_INPUT_TARGET = nil -- The first TARGET detected when the E key is pr
 local PICKUP_HOLD = 0.1 -- The amount of time in seconds it takes GUI.Progress.Value to reach 360. 								(NUMBER)
 local GRAB_CARET_SPEED = 0.5 -- The speed GUI.GrabCaret lerps at. 																(NUMBER)
 local PICKUP_TWEEN = nil -- The tween used to lerp the GUI.PROGRESS value. Updates with a new Tween on every E InputBegan. 		(INSTANCE)
-
+local CLEAR_TEXT_ON_FOCUS = true
 
 -- 		Event Functions
 FUNCTIONS.PICKUP = nil -- The function run when an item is picked up.															(FUNCTION)
 FUNCTIONS.HOLDING = nil -- The function run while an item is being held.														(FUNCTION)
 FUNCTIONS.DROP = nil -- The function run when an item is dropped.																(FUNCTION)
 
+FUNCTIONS.ReturnPlayer = nil -- Returns the player whose name is closest to the parsed string.
 FUNCTIONS.ReturnPrimaryPart = nil -- Returns the PrimaryPart of a Model.														(FUNCTION)
 FUNCTIONS.UpdateTarget = nil -- Updates the TARGET variable.																	(FUNCTION)
 FUNCTIONS.UpdateRaycastHoldDistance = nil -- Updates RAYCASTHOLD_DISTANCE														(FUNCTION)
 FUNCTIONS.FitsCriteria = nil --	Returns true if the parsed item fits pick up criteria.											(FUNCTION)
 FUNCTIONS.EditFilterDescendantsInstances = nil -- Adds and removes items to the RAYCASTPARAMS.FilterDescendantsInstances		(FUNCTION)
 FUNCTIONS.ParentBodyMovers = nil --	Parents the BodyMovers to the item parsed to it.											(FUNCTION)
+--FUNCTIONS.GetModelMass = nil
 
 
 --		Audios
@@ -480,27 +640,27 @@ MOVE_MODES.Camera = function ()
 	local Distance = math.clamp(HOLD_DISTANCE, MINIMUM_HOLD_DISTANCE, (RAYCAST_HOLD_DISTANCE < MINIMUM_HOLD_DISTANCE and MINIMUM_HOLD_DISTANCE or RAYCAST_HOLD_DISTANCE))
 	
 	local Destination = Origin + Direction * Distance
-	
+
 	if COLLISION_ENABLED then
-	
-	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
-	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
-	
-	local Origin = Camera.CFrame.Position
-	local Direction = ScreenRay.Direction * HOLD_DISTANCE
-	
-	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
-	
-	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
-	
-	local RotatedSize = Vector3.new(
-        math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
-        math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
-        math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
-    )
-	
-	if Result then
-		Destination = Destination + Result.Normal * RotatedSize / 2
+		local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+		local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
+		
+		local Origin = Camera.CFrame.Position
+		local Direction = ScreenRay.Direction * HOLD_DISTANCE
+		
+		local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+		
+		local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
+		
+		local RotatedSize = Vector3.new(
+			math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
+			math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
+			math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
+		)
+		
+		if Result then
+			Destination = Destination + Result.Normal * RotatedSize / 2
+		end
 	end
 	
 	return Destination
@@ -514,30 +674,47 @@ MOVE_MODES.Mouse = function ()
 	local Direction = ScreenRay.Direction * 1e6
 	
 	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+
+	local Destination
 	
-	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
-	
-	local RotatedSize = Vector3.new(
-        math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
-        math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
-        math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
-    )
-	
-	local FinalDestination
-	
-	if CURRENT_ITEM:IsA("BasePart") then
-		FinalDestination = Result.Position + Result.Normal * RotatedSize / 2
-	elseif CURRENT_ITEM:IsA("Model") then
-		local Difference = (CURRENT_ITEM:GetBoundingBox().Position - CURRENT_ITEM:GetPivot().Position)
+	if Result then
+		Destination = Result.Position
+
+		if COLLISION_ENABLED then
+			local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
 		
-		FinalDestination = Result.Position + Result.Normal * RotatedSize / 2 - Difference
+			local RotatedSize = Vector3.new(
+				math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
+				math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
+				math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
+			)
+
+			Destination = Destination + Result.Normal * RotatedSize / 2
+		end
+	else
+		Destination = Origin + Direction
 	end
+
+	if CURRENT_ITEM:IsA("Model") then
+		local PivotDifference = CURRENT_ITEM:GetBoundingBox().Position - CURRENT_ITEM:GetPivot().Position
+
+		Destination = Destination - PivotDifference
+	end
+
+	return Destination
+end
+
+FUNCTIONS.ReturnPlayer = function (Name)
+	if not Name then return end
 	
-	return Result ~= nil and FinalDestination or Origin + Direction
+	for _, Player in pairs(Players:GetPlayers()) do
+		if Player.Name:lower():sub(1, #Name) == Name:lower() then return Player end
+		if Player.DisplayName:lower():sub(1, #Name) == Name:lower() then return Player end
+	end
 end
 
 FUNCTIONS.IsFirstPerson = function ()
-	return owner.Character.Head.LocalTransparencyModifier == 1
+	return owner.Character.Head.LocalTransparencyModifier > 0
 end
 
 FUNCTIONS.ParentBodyMovers = function (Parent)
@@ -559,7 +736,7 @@ FUNCTIONS.EditFilterDescendantsInstances = function (add, ...)
 end
 
 FUNCTIONS.ReturnPrimaryPart = function (Model)
-	return Model:FindFirstChild("HumanoidRootPart") or Model.PrimaryPart or Model:FindFirstChildOfClass("BasePart", true) or Model:FindFirstChildOfClass("Part", true)
+	return Model.PrimaryPart or Model:FindFirstChildOfClass("BasePart", true) or Model:FindFirstChildOfClass("Part", true)
 end
 
 FUNCTIONS.FitsCriteria = function (Item) -- Check if an item fits the criteria for being picked up.
@@ -599,6 +776,64 @@ FUNCTIONS.UpdateRaycastHoldDistance = function ()
 		RAYCAST_HOLD_DISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
 	else
 		RAYCAST_HOLD_DISTANCE = MAXIMUM_HOLD_DISTANCE
+	end
+end
+
+COMMANDS = {
+	{
+		CODE = "collision",
+		FUNCTION = function (Boolean)
+			COLLISION_ENABLED = Boolean == "true" and true or false
+		end
+	},
+	{
+		CODE = "welding",
+		FUNCTION = function (Boolean)
+			WELDING_ENABLED = Boolean == "true" and true or false
+		end
+	}
+}
+
+FUNCTIONS.RUN_COMMAND_BAR = function ()
+	local Text = GUI.CommandBarTextBox.Text
+	
+	if COMMAND_PREFIX then
+		if Text:sub(1, 1):lower() ~= COMMAND_PREFIX:lower() then return end
+		Text = Text:sub(2, #Text)
+	end
+	
+	local ClientCommandsRun = false
+	
+	local Sections = Text:split(COMMAND_SEPARATOR)
+	
+	for _, Command in pairs(COMMANDS) do
+		if Sections[1]:lower() == Command.CODE:lower() then
+			table.remove(Sections, 1)
+			Command.FUNCTION(table.unpack(Sections))
+			ClientCommandsRun = true
+		end
+	end
+
+	if ClientCommandsRun then return end
+	
+	ChatCommandRemote:FireServer(Text)
+end
+
+FUNCTIONS.FOCUS_TEXTBOX = function ()
+	GUI.CommandBarTextBox.Visible = true
+	GUI.CommandBarTextBox.Interactable = true
+	
+	GUI.CommandBarTextBox:CaptureFocus()
+	GUI.CommandBarTextBox:GetPropertyChangedSignal("Text"):Wait()
+	GUI.CommandBarTextBox.Text = GUI.CommandBarTextBox.Text:sub(1, #GUI.CommandBarTextBox.Text - 1)
+end
+
+FUNCTIONS.FOCUS_LOST = function (EnterPressed)
+	GUI.CommandBarTextBox.Visible = false
+	GUI.CommandBarTextBox.Interactable = false
+
+	if EnterPressed then
+		FUNCTIONS.RUN_COMMAND_BAR()
 	end
 end
 
@@ -647,9 +882,28 @@ GUI.GrabCaret = Instance.new("TextLabel")
 GUI.PROGRESS = Instance.new("NumberValue")
 GUI.PROGRESSBARBACKCOLOR = Color3.new(0, 0, 0)
 GUI.PROGRESSBARIMAGECOLOR = Color3.new(150, 150, 150)
+GUI.CommandBarTextBox = Instance.new("TextBox", GUI.CircularProgressBarScreenGui)
+--GUI.CommandBarUICorner = Instance.new("UICorner", GUI.CommandBarTextBox)
 -- \\ ======================================================================================================================== //
 
 -- // Serialized GUI ========================================================= \\
+GUI.CommandBarTextBox.FocusLost:Connect(FUNCTIONS.FOCUS_LOST)
+GUI.CommandBarTextBox.ClearTextOnFocus = CLEAR_TEXT_ON_FOCUS
+GUI.CommandBarTextBox.BorderSizePixel = 0
+GUI.CommandBarTextBox.Size = UDim2.fromScale(1, 0.03)
+GUI.CommandBarTextBox.Position = UDim2.fromScale(0.5, 0.475)
+GUI.CommandBarTextBox.AnchorPoint = Vector2.new(0.5, 0.5)
+GUI.CommandBarTextBox.BackgroundTransparency = 0.25
+GUI.CommandBarTextBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+GUI.CommandBarTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+GUI.CommandBarTextBox.TextStrokeTransparency = 1
+GUI.CommandBarTextBox.Font = Enum.Font.Code
+GUI.CommandBarTextBox.TextSize = GUI.CommandBarTextBox.Size.Y.Scale * GUI.CircularProgressBarScreenGui.AbsoluteSize.Y
+GUI.CommandBarTextBox.Text = ""
+GUI.CommandBarTextBox.PlaceholderText = ""
+GUI.CommandBarTextBox.Visible = false
+GUI.CommandBarTextBox.Interactable = false
+
 GUI.CircularProgressBarScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.CircularProgressBarScreenGui.Name = "CircularProgressBarScreenGui"
 GUI.CircularProgressBarScreenGui.IgnoreGuiInset = true
@@ -857,8 +1111,12 @@ FUNCTIONS.DROP = function ()
 		
 		if CURRENT_ITEM:IsA("BasePart") then
 			CURRENT_ITEM.AssemblyLinearVelocity = Camera.CFrame.LookVector * THROW_FORCE
-		else
-			CURRENT_ITEM:FindFirstChildWhichIsA("BasePart").AssemblyLinearVelocity = Camera.CFrame.LookVector * THROW_FORCE
+		elseif CURRENT_ITEM:IsA("Model") then
+			local BasePart = CURRENT_ITEM:FindFirstChildWhichIsA("BasePart")
+
+			if BasePart then
+				BasePart.AssemblyLinearVelocity = (Camera.CFrame.LookVector * THROW_FORCE)
+			end
 		end
 	end
 	
@@ -868,101 +1126,114 @@ end
 
 -- // Input Handling ============================================================================================ \\
 GUI.InputBegan = function (Input, GPE)
-	if not GPE then
-		if Input.UserInputType == Enum.UserInputType.Keyboard then
-			if Input.KeyCode == PICKUP_INPUT then
-				PICKUP_INPUT_DOWN = true
+	if Input.KeyCode == Enum.KeyCode.BackSlash then
+		FUNCTIONS.FOCUS_TEXTBOX()
+	end
+	
+	if GPE then return end
+	
+	if Input.UserInputType == Enum.UserInputType.Keyboard then
+		if Input.KeyCode == PICKUP_INPUT then
+			PICKUP_INPUT_DOWN = true
+			
+			if CURRENT_ITEM then
+				DROPPING = true
 				
-				if CURRENT_ITEM then
-					DROPPING = true
-					
-					local DROPSTART = tick()
-					
-					repeat
-						if tick() - DROPSTART > 0.5 then
-							THROW_FORCE = math.clamp(THROW_FORCE + THROW_FORCE_INCREMENT, 0, MAX_THROW_FORCE)
-						end
-						
-						task.wait()
-					until not DROPPING
-				else
-					if TARGET then
-						FIRST_INPUT_TARGET = TARGET
-						GUI.CircularProgressBar.Visible = true
-						PICKUP_TWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(PICKUP_HOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
-						PICKUP_TWEEN:Play()
+				local DROPSTART = tick()
+				
+				repeat
+					if tick() - DROPSTART > 0.5 then
+						THROW_FORCE = math.clamp(THROW_FORCE + THROW_FORCE_INCREMENT, 0, MAX_THROW_FORCE)
 					end
-				end
-			elseif Input.KeyCode == Enum.KeyCode.LeftControl then
-				CTRL_DOWN = true
-			elseif Input.KeyCode == Enum.KeyCode.LeftShift then
-				SHIFT_DOWN = true
-			elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
-				ALT_DOWN = true
-				
-				Highlight.FillColor = HighlightColorRed.FillColor
-				Highlight.OutlineColor = HighlightColorRed.OutlineColor
-			elseif Input.KeyCode == INCREASEDISTANCE_INPUT and CURRENT_ITEM then
-				HOLD_DISTANCE = math.clamp(HOLD_DISTANCE + HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
-			elseif Input.KeyCode == DECREASEDISTANCE_INPUT and CURRENT_ITEM then
-				HOLD_DISTANCE = math.clamp(HOLD_DISTANCE - HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
-			elseif Input.KeyCode == CHECK_NETWORK_OWNER_INPUT then
-				CheckOwnerRemote:FireServer(Mouse.Target)
-			elseif Input.KeyCode == Enum.KeyCode.One then
-				AXIS = "X"
-			elseif Input.KeyCode == Enum.KeyCode.Two then
-				AXIS = "Y"
-			elseif Input.KeyCode == Enum.KeyCode.Three then
-				AXIS = "Z"
-			elseif Input.KeyCode == ROTATE_INPUT then
-				ROTATE_INPUT_DOWN = true
-				
-				if ALT_DOWN then
-					repeat
-						
-						
-						task.wait()
-					until not ALT_DOWN or not ROTATE_INPUT_DOWN
 					
-					return
+					task.wait()
+				until not DROPPING
+			else
+				if TARGET then
+					FIRST_INPUT_TARGET = TARGET
+					GUI.CircularProgressBar.Visible = true
+					PICKUP_TWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(PICKUP_HOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
+					PICKUP_TWEEN:Play()
 				end
+			end
+		elseif Input.KeyCode == Enum.KeyCode.LeftControl then
+			CTRL_DOWN = true
+		elseif Input.KeyCode == Enum.KeyCode.LeftShift then
+			SHIFT_DOWN = true
+		elseif Input.KeyCode == Enum.KeyCode.LeftAlt then
+			ALT_DOWN = true
+			
+			Highlight.FillColor = HighlightColorRed.FillColor
+			Highlight.OutlineColor = HighlightColorRed.OutlineColor
+		elseif Input.KeyCode == INCREASEDISTANCE_INPUT and CURRENT_ITEM then
+			HOLD_DISTANCE = math.clamp(HOLD_DISTANCE + HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
+		elseif Input.KeyCode == DECREASEDISTANCE_INPUT and CURRENT_ITEM then
+			HOLD_DISTANCE = math.clamp(HOLD_DISTANCE - HOLD_DISTANCE_INCREMENT, MINIMUM_HOLD_DISTANCE, MAXIMUM_HOLD_DISTANCE)
+		elseif Input.KeyCode == CHECK_NETWORK_OWNER_INPUT then
+			CheckOwnerRemote:FireServer(Mouse.Target)
+		elseif Input.KeyCode == Enum.KeyCode.One then
+			AXIS = "X"
+		elseif Input.KeyCode == Enum.KeyCode.Two then
+			AXIS = "Y"
+		elseif Input.KeyCode == Enum.KeyCode.Three then
+			AXIS = "Z"
+		elseif Input.KeyCode == ROTATE_INPUT then
+			ROTATE_INPUT_DOWN = true
+			
+			if ALT_DOWN then
+				local Offset = (Camera.CFrame - owner.Character.Head.Position).Position
 				
-				RotateSound:Play()
+				Camera.CameraType = Enum.CameraType.Scriptable
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 				
-				if SHIFT_DOWN and CTRL_DOWN then
-					ORIENTATION = CFrame.new()
-					return
-				end
-				
-				if AXIS == "X" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(ORIENTATION_INCREMENT, 0, 0)
-				elseif AXIS == "Y" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(0, ORIENTATION_INCREMENT, 0)
-				elseif AXIS == "Z" then
-					ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATION_INCREMENT)
-				end
-			elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
-				if not CTRL_DOWN then
-					if owner.CameraMode == Enum.CameraMode.Classic then
-						owner.CameraMode = Enum.CameraMode.LockFirstPerson
-					elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
-						owner.CameraMode = Enum.CameraMode.Classic
-					end
-				else
-				end
-			elseif Input.KeyCode == CHANGE_MODE_INPUT then
-				if MODE == "Camera" then
-					MODE = "Mouse"
-				elseif MODE == "Mouse" then
-					MODE = "Camera"
-				end
-			elseif Input.KeyCode == DELETE_INPUT then
-				if CURRENT_ITEM then
-					local Item = CURRENT_ITEM
+				repeat
+					--Camera.CFrame = owner.Character.Head.CFrame + Offset
 					
-					FUNCTIONS.DROP()
-					DeleteRemote:FireServer(Item)
-				end
+					local MouseDelta = UserInputService:GetMouseDelta()
+					
+					local RotationX = MouseDelta.X * ORIENTATION_INCREMENT
+					local RotationY = MouseDelta.Y * ORIENTATION_INCREMENT
+					
+					ORIENTATION = ORIENTATION * CFrame.Angles(math.rad(RotationY), math.rad(RotationX), 0)
+					
+					task.wait()
+				until not ALT_DOWN or not ROTATE_INPUT_DOWN
+
+				Camera.CameraType = Enum.CameraType.Custom
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				
+				return
+			end
+			
+			RotateSound:Play()
+			
+			if SHIFT_DOWN and CTRL_DOWN then
+				ORIENTATION = CFrame.new()
+				return
+			end
+			
+			if AXIS == "X" then
+				ORIENTATION = ORIENTATION * CFrame.Angles(ORIENTATION_INCREMENT, 0, 0)
+			elseif AXIS == "Y" then
+				ORIENTATION = ORIENTATION * CFrame.Angles(0, ORIENTATION_INCREMENT, 0)
+			elseif AXIS == "Z" then
+				ORIENTATION = ORIENTATION * CFrame.Angles(0, 0, ORIENTATION_INCREMENT)
+			end
+		elseif Input.KeyCode == CHANGE_CAMERAMODE_INPUT then
+			if owner.CameraMode == Enum.CameraMode.Classic then
+				owner.CameraMode = Enum.CameraMode.LockFirstPerson
+			elseif owner.CameraMode == Enum.CameraMode.LockFirstPerson then
+				owner.CameraMode = Enum.CameraMode.Classic
+			end
+		elseif Input.KeyCode == CHANGE_MODE_INPUT then
+			if MODE == "Camera" then
+				MODE = "Mouse"
+			elseif MODE == "Mouse" then
+				MODE = "Camera"
+			end
+		elseif Input.KeyCode == DELETE_INPUT then
+			if TARGET or CURRENT_ITEM then
+				DeleteRemote:FireServer(CURRENT_ITEM or TARGET)
 			end
 		end
 	end
@@ -1105,6 +1376,4 @@ RunService.PostSimulation:Connect(function(Delta)
 		end
 	end
 end)
-
-print(FUNCTIONS)
 ]], owner.PlayerGui)
