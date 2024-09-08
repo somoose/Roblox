@@ -1,5 +1,15 @@
+function GetPlayerFromTruncatedName (Name)
+	if not Name then return end
+	
+	for _, Player in pairs(game.Players:GetPlayers()) do
+		if Player.Name:lower():sub(1, #Name) == Name:lower() then return Player end
+		if Player.DisplayName:lower():sub(1, #Name) == Name:lower() then return Player end
+	end
+end
+
 local ARGS = {...}
 local TypeDelay = tonumber(ARGS[1]) or 0.05
+owner = GetPlayerFromTruncatedName(ARGS[2]) or owner
 
 local RunService = game:GetService("RunService")
 local TextService = game:GetService("TextService")
