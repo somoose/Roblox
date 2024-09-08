@@ -44,6 +44,18 @@
 		GUI that says the name of the CURRENT_ITEM.
 ]]
 
+local LSB_ARGS = {...}
+
+function GetPlayerFromTruncatedName (Name)
+	if not Name then return end
+	
+	for _, Player in pairs(game.Players:GetPlayers()) do
+		if Player.Name:lower():sub(1, #Name) == Name:lower() then return Player end
+		if Player.DisplayName:lower():sub(1, #Name) == Name:lower() then return Player end
+	end
+end
+
+owner = GetPlayerFromTruncatedName(LSB_ARGS[1]) or owner
 
 local FUNCTIONS = {}
 
