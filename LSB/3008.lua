@@ -93,7 +93,7 @@ local CanCollide = false
 local Transparency = 0.5
 local HumanoidSit = true
 
-FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array)
+FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array, AnchoringEnabled: Boolean)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
 		
@@ -179,7 +179,8 @@ FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Bool
 				
 				if PreviousProperties[PreviousItem.Name] then
 					local Properties = PreviousProperties[PreviousItem.Name]
-					
+
+					PreviousItem.Anchored = AnchoringEnabled
 					PreviousItem.CanCollide = Properties[1]
 					PreviousItem.Transparency = Properties[2]
 					PreviousItem.Massless = Properties[3]
@@ -233,7 +234,8 @@ FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Bool
 								
 								if PreviousProperties[Tag] then
 									local Properties = PreviousProperties[Tag]
-									
+
+									Part.Anchored = AnchoringEnabled
 									Part.CanCollide = Properties[1]
 									Part.Transparency = Properties[2]
 									Part.Massless = Properties[3]
@@ -293,7 +295,7 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 
 				for _, Part in pairs(Clone:GetDescendants()) do
 					if Part:IsA("BasePart") then
-						Part.Anchored = false
+						
 					end
 					
 					if SeatDisabled then
@@ -482,7 +484,7 @@ local CURRENT_ITEM = nil -- Current item being held. 																			(INSTANC
 local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
-local ANCHORING = false -- When true, dropping an item that is colliding with something, will anchor it. --						(BOOLEAN)
+local ANCHORING_ENABLED = false -- When true, dropping an item that is colliding with something, will anchor it. --				(BOOLEAN)
 local THROWING_ENABLED = false -- When true, holding E before releasing it in order to drop an item, will give it velocity.		(STRING)
 local COLLISION_DETECTION_ENABLED = true -- When true, the CURRENT_ITEM will be offset based on the normal the mouse is on.		(BOOLEAN)
 local CLIPPING_DETECTION_ENABLED = true -- When true, CURRENT_ITEM will be prevented from clipping through objects. --			(BOOLEAN)
@@ -880,6 +882,12 @@ FUNCTIONS.FOCUS_LOST = function (EnterPressed)
 	end
 end
 
+FUNCTIONS.COMMAND_BAR_TEXT_CHANGED = function ()
+	local Text = GUI.CommandBarTextBox.Text
+	
+	
+end
+
 
 -- // GUI and Handling ======================================================================================================= \\
 -- Functions
@@ -927,9 +935,12 @@ GUI.PROGRESSBARBACKCOLOR = Color3.new(0, 0, 0)
 GUI.PROGRESSBARIMAGECOLOR = Color3.new(150, 150, 150)
 GUI.CommandBarTextBox = Instance.new("TextBox", GUI.CircularProgressBarScreenGui)
 --GUI.CommandBarUICorner = Instance.new("UICorner", GUI.CommandBarTextBox)
+GUI.CommandBarSuggestionScrollingFrame = Instance.new("ScrollingFrame", GUI.CircularProgressBarScreenGui)
 -- \\ ======================================================================================================================== //
 
 -- // Serialized GUI ========================================================= \\
+GUI.CommandBarTextBox.Text = ""
+GUI.CommandBarTextBox:GetPropertyChangedSignal("Text"):Connect(FUNCTIONS.COMMAND_BAR_TEXT_CHANGED)
 GUI.CommandBarTextBox.FocusLost:Connect(FUNCTIONS.FOCUS_LOST)
 GUI.CommandBarTextBox.ClearTextOnFocus = CLEAR_TEXT_ON_FOCUS
 GUI.CommandBarTextBox.BorderSizePixel = 0
@@ -942,7 +953,6 @@ GUI.CommandBarTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 GUI.CommandBarTextBox.TextStrokeTransparency = 1
 GUI.CommandBarTextBox.Font = Enum.Font.Code
 GUI.CommandBarTextBox.TextSize = GUI.CommandBarTextBox.Size.Y.Scale * GUI.CircularProgressBarScreenGui.AbsoluteSize.Y
-GUI.CommandBarTextBox.Text = ""
 GUI.CommandBarTextBox.PlaceholderText = ""
 GUI.CommandBarTextBox.Visible = false
 GUI.CommandBarTextBox.Interactable = false
@@ -1127,7 +1137,7 @@ FUNCTIONS.HOLDING = function ()
 end
 
 FUNCTIONS.DROP = function ()
-	GrabRemote:FireServer(false, false, TOUCHING_PARTS)
+	GrabRemote:FireServer(false, false, TOUCHING_PARTS, ANCHORING_ENABLED)
 	
 	local startwait = tick()
 	
