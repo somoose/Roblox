@@ -731,7 +731,7 @@ MOVE_MODES.Mouse = function ()
 		Destination = Destination - PivotDifference
 	end
 
-	return FUNCTIONS.SnapToGrid(Destination, 2)
+	return Destination
 end
 
 FUNCTIONS.ReturnPlayer = function (Name)
