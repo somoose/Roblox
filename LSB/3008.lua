@@ -45,8 +45,9 @@
 ]]
 
 local LSB_ARGS = {...}
+local FUNCTIONS = {}
 
-function GetPlayerFromTruncatedName (Name)
+FUNCTIONS.ReturnPlayer = function (Name)
 	if not Name then return end
 	
 	for _, Player in pairs(game.Players:GetPlayers()) do
@@ -55,9 +56,7 @@ function GetPlayerFromTruncatedName (Name)
 	end
 end
 
-owner = GetPlayerFromTruncatedName(LSB_ARGS[1]) or owner
-
-local FUNCTIONS = {}
+owner = FUNCTIONS.ReturnPlayer(LSB_ARGS[1]) or owner
 
 local CollectionService = game:GetService("CollectionService")
 local isHeld_TAG = "__ISHELD__"
@@ -79,11 +78,14 @@ end)
 local ChatCommandRemote = Instance.new("RemoteEvent", owner.PlayerGui)
 ChatCommandRemote.Name = "ChatCommandRemote"
 
+local KeyBindRemote = Instance.new("RemoteEvent", owner.PlayerGui)
+KeyBindRemote.Name = "KeyBindRemote"
+
 local PreviousItem = nil
 local PreviousNetworkOwners = {}
 local PreviousProperties = {}
 
-function CreateUID ()
+FUNCTIONS.CreateUID = function ()
 	return tick() .. "|" .. math.random(100000000, 999999999)
 end
 
@@ -129,7 +131,7 @@ FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Bool
 			for _, Part in pairs(Item:GetDescendants()) do
 				if Part:IsA("BasePart") then table.insert(Parts, Part)
 					-- Store Part properties in PreviousProperties
-					local UID = CreateUID()
+					local UID = FUNCTIONS.CreateUID()
 					CollectionService:AddTag(Part, UID)
 					
 					PreviousProperties[UID] = {
@@ -154,7 +156,7 @@ FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Bool
 			
 			for _, Part in pairs(Parts) do -- Store original NetworkOwners.
 				local NetworkOwner = Part:GetNetworkOwner()
-				local UID = CreateUID()
+				local UID = FUNCTIONS.CreateUID()
 				CollectionService:AddTag(Part, UID)
 				
 				if NetworkOwner then
@@ -261,15 +263,6 @@ GrabRemote.OnServerEvent:Connect(FUNCTIONS.GrabRemoteServerEvent)
 local ID = 131302043244796
 local FURN_ASSETS = LoadAssets(ID)
 local ASSET_LIST = FURN_ASSETS:GetArray()
-
-FUNCTIONS.ReturnPlayer = function (Name)
-	if not Name then return end
-	
-	for _, Player in pairs(Players:GetPlayers()) do
-		if Player.Name:lower():sub(1, #Name) == Name:lower() then return Player end
-		if Player.DisplayName:lower():sub(1, #Name) == Name:lower() then return Player end
-	end
-end
 
 FUNCTIONS.ClearAllModels = function ()
 	for _, Descendant in pairs(workspace:GetDescendants()) do
@@ -432,6 +425,9 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
+local SoundService = game:GetService("SoundService")
+
+SoundService.AmbientReverb = Enum.ReverbType.Auditorium
 
 local BlacklistedTags = {
 	ISHELD_TAG = "__ISHELD__", -- The CollectionService tag applied to items when they're picked up.
@@ -471,16 +467,28 @@ local ServerScript = GetServerScriptRemote:InvokeServer()
 
 
 
+-- Camera Bobble
+local RotationFrequency, RotationIntensity = 6, 1
+local BobbleFrequency, BobbleIntensity = 9, 0.085
+local DefaultWalkSpeed = 16
+local PreviousVelocity = nil
+FUNCTIONS.GetCurve = function (Frequency, Intensity) return math.sin(os.clock() * Frequency) * Intensity end
+
+
+
 local TARGET = nil -- Current item at the mouse.									 											(INSTANCE)
 local CURRENT_ITEM = nil -- Current item being held. 																			(INSTANCE)
 
 local HOLDING = false -- True when the user is holding an item.																	(BOOLEAN)
 local DROPPING = false -- True when the user is in the process of dropping something.											(BOOLEAN)
 
+local ANCHORING = false -- When true, dropping an item that is colliding with something, will anchor it. --						(BOOLEAN)
 local THROWING_ENABLED = false -- When true, holding E before releasing it in order to drop an item, will give it velocity.		(STRING)
-local NORMAL_COLLISION_ENABLED = true -- When true, the CURRENT_ITEM will be offset based on the normal the mouse is on.		(BOOLEAN)
-local COLLISION_ENABLED = true -- When true, CURRENT_ITEM will be prevented from clipping through objects
+local COLLISION_DETECTION_ENABLED = true -- When true, the CURRENT_ITEM will be offset based on the normal the mouse is on.		(BOOLEAN)
+local CLIPPING_DETECTION_ENABLED = true -- When true, CURRENT_ITEM will be prevented from clipping through objects. --			(BOOLEAN)
 local WELDING_ENABLED = true -- When true, user is able to weld CURRENT_ITEM to other items.									(BOOLEAN)
+local WELDING_BLACKLIST = {} -- A list of parts that the user is not allowed to weld to. --										(ARRAY)
+
 local TOUCHING = false -- True when the CURRENT_ITEM is touching other parts.													(BOOLEAN)
 local TOUCHING_PARTS = {} -- The parts of CURRENT_ITEM and the parts they're in contact with.									(ARRAY)
 
@@ -507,7 +515,7 @@ local THROW_FORCE_INCREMENT = 10 -- The amount that THROW_FORCE increases by.			
 local MAX_THROW_FORCE = 60 -- The max force that can be used to throw the item.													(NUMBER)
 
 local DEFAULT_FIELD_OF_VIEW = 70
-local ZOOMED_FIELD_OF_VIEW = 10
+local ZOOMED_FIELD_OF_VIEW = 15
 local FIELD_OF_VIEW_LERP_SPEED = 0.125
 
 local MOVE_MODE = "Camera" --																									(STRING)
@@ -563,7 +571,7 @@ local ScrollWheelClickSound = Instance.new("Sound", owner.PlayerGui) --									
 ScrollWheelClickSound.Name = "ScrollWheelClick"
 ScrollWheelClickSound.SoundId = "rbxassetid://9121005567"
 ScrollWheelClickSound.PlaybackSpeed = 1
-ScrollWheelClickSound.Volume = 2.25
+ScrollWheelClickSound.Volume = 0.75
 
 local RotateSound = Instance.new("Sound", owner.PlayerGui) --																	(SOUND)
 RotateSound.Name = "Rotate"
@@ -663,27 +671,27 @@ MOVE_MODES.Camera = function ()
 	
 	local Destination = Origin + Direction * Distance
 
-	if COLLISION_ENABLED then
-		local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
-		local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
-		
-		local Origin = Camera.CFrame.Position
-		local Direction = ScreenRay.Direction * HOLD_DISTANCE
-		
-		local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
-		
-		local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
-		
-		local RotatedSize = Vector3.new(
-			math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
-			math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
-			math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
-		)
-		
-		if Result then
-			Destination = Destination + Result.Normal * RotatedSize / 2
-		end
-	end
+	--if COLLISION_DETECTION_ENABLED then
+	--	local MouseLocation = UserInputService:GetMouseLocation() - GuiService:GetGuiInset()
+	--	local ScreenRay = Camera:ScreenPointToRay(MouseLocation.X, MouseLocation.Y)
+	--	
+	--	local Origin = Camera.CFrame.Position
+	--	local Direction = ScreenRay.Direction * HOLD_DISTANCE
+	--	
+	--	local Result = workspace:Raycast(Origin, Direction, RAYCASTPARAMS)
+	--	
+	--	local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
+	--	
+	--	local RotatedSize = Vector3.new(
+	--		math.abs(ORIENTATION.RightVector.X * Size.X) + math.abs(ORIENTATION.UpVector.X * Size.Y) + math.abs(ORIENTATION.LookVector.X * Size.Z),
+	--		math.abs(ORIENTATION.RightVector.Y * Size.X) + math.abs(ORIENTATION.UpVector.Y * Size.Y) + math.abs(ORIENTATION.LookVector.Y * Size.Z),
+	--		math.abs(ORIENTATION.RightVector.Z * Size.X) + math.abs(ORIENTATION.UpVector.Z * Size.Y) + math.abs(ORIENTATION.LookVector.Z * Size.Z)
+	--	)
+	--	
+	--	if Result then
+	--		Destination = Destination + Result.Normal * RotatedSize / 2
+	--	end
+	--end
 	
 	return Destination
 end
@@ -702,7 +710,7 @@ MOVE_MODES.Mouse = function ()
 	if Result then
 		Destination = Result.Position
 
-		if COLLISION_ENABLED then
+		if COLLISION_DETECTION_ENABLED then
 			local Size = CURRENT_ITEM:IsA("BasePart") and CURRENT_ITEM.Size or CURRENT_ITEM:GetExtentsSize()
 		
 			local RotatedSize = Vector3.new(
@@ -723,7 +731,7 @@ MOVE_MODES.Mouse = function ()
 		Destination = Destination - PivotDifference
 	end
 
-	return Destination
+	return FUNCTIONS.SnapToGrid(Destination, 2)
 end
 
 FUNCTIONS.ReturnPlayer = function (Name)
@@ -792,10 +800,14 @@ FUNCTIONS.UpdateTarget = function () -- Sets TARGET to the suitable Part or Mode
 end
 
 FUNCTIONS.UpdateRaycastHoldDistance = function ()
-	local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * MAXIMUM_HOLD_DISTANCE, RAYCASTPARAMS)
-	
-	if RaycastResult then
-		RAYCAST_HOLD_DISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
+	if CLIPPING_DETECTION_ENABLED then
+		local RaycastResult = workspace:Raycast(Camera.CFrame.Position, Camera.CFrame.LookVector * MAXIMUM_HOLD_DISTANCE, RAYCASTPARAMS)
+		
+		if RaycastResult then
+			RAYCAST_HOLD_DISTANCE = (RaycastResult.Position - Camera.CFrame.Position).Magnitude
+		else
+			RAYCAST_HOLD_DISTANCE = MAXIMUM_HOLD_DISTANCE
+		end
 	else
 		RAYCAST_HOLD_DISTANCE = MAXIMUM_HOLD_DISTANCE
 	end
@@ -805,19 +817,22 @@ COMMANDS = {
 	{
 		CODE = "clipping",
 		FUNCTION = function (Boolean)
-			COLLISION_ENABLED = Boolean == "true" and true or false
+			CLIPPING_DETECTION_ENABLED = Boolean == "true" and true or false
+			print("Set CLIPPING_DETECTION_ENABLED to " .. tostring(CLIPPING_DETECTION_ENABLED))
 		end
 	},
 	{
 		CODE = "welding",
 		FUNCTION = function (Boolean)
 			WELDING_ENABLED = Boolean == "true" and true or false
+			print("Set WELDING_ENABLED to " .. tostring(WELDING_ENABLED))
 		end
 	},
 	{
 		CODE = "collision",
 		FUNCTION = function (Boolean)
-			NORMAL_COLLISION_ENABLED = Boolean == "true" and true or false
+			COLLISION_DETECTION_ENABLED = Boolean == "true" and true or false
+			print("Set COLLISION_DETECTION_ENABLED to " .. tostring(COLLISION_DETECTION_ENABLED))
 		end
 	}
 }
@@ -1134,7 +1149,7 @@ FUNCTIONS.DROP = function ()
 	FUNCTIONS.ParentBodyMovers(nil)
 	FUNCTIONS.EditFilterDescendantsInstances(false, CURRENT_ITEM)
 	
-	if THROW_FORCE > 0 then
+	if THROW_FORCE > 0 and THROWING_ENABLED then
 		local Velocity = Camera.CFrame.LookVector * THROW_FORCE
 		
 		if CURRENT_ITEM:IsA("BasePart") then
@@ -1166,18 +1181,20 @@ GUI.InputBegan = function (Input, GPE)
 			
 			if CURRENT_ITEM then
 				DROPPING = true
-				
-				local DROPSTART = tick()
-				
-				repeat
-					if tick() - DROPSTART > 0.5 then
-						THROW_FORCE = math.clamp(THROW_FORCE + THROW_FORCE_INCREMENT, 0, MAX_THROW_FORCE)
-					end
+
+				if THROWING_ENABLED then
+					local DROPSTART = tick()
 					
-					task.wait()
-				until not DROPPING
+					repeat
+						if tick() - DROPSTART > 0.5 then
+							THROW_FORCE = math.clamp(THROW_FORCE + THROW_FORCE_INCREMENT, 0, MAX_THROW_FORCE)
+						end
+						
+						task.wait()
+					until not DROPPING
+				end
 			else
-				if TARGET then
+				if TARGET and not ZOOM_INPUT_DOWN then
 					FIRST_INPUT_TARGET = TARGET
 					GUI.CircularProgressBar.Visible = true
 					PICKUP_TWEEN = TweenService:Create(GUI.PROGRESS, TweenInfo.new(PICKUP_HOLD, Enum.EasingStyle.Cubic, Enum.EasingDirection.In), {Value = 359.9})
@@ -1232,8 +1249,10 @@ GUI.InputBegan = function (Input, GPE)
 				
 				return
 			end
-			
-			RotateSound:Play()
+
+			if not ALT_DOWN then
+				RotateSound:Play()
+			end
 			
 			if SHIFT_DOWN and CTRL_DOWN then
 				ORIENTATION = CFrame.new()
@@ -1334,6 +1353,20 @@ UserInputService.InputEnded:Connect(GUI.InputEnded)
 -- \\ =========================================================================================================== //
 
 
+RunService.PreRender:Connect(function(Delta)
+	local Velocity = math.round(Vector3.new(owner.Character.HumanoidRootPart.AssemblyLinearVelocity.X, 0, owner.Character.HumanoidRootPart.AssemblyLinearVelocity.Z).Magnitude)
+	
+	if not FUNCTIONS.IsFirstPerson() then
+		Velocity = 0
+	end
+
+	Velocity = (PreviousVelocity ~= nil) and FUNCTIONS.Lerp(PreviousVelocity, Velocity, 0.25) or Velocity
+
+	PreviousVelocity = Velocity
+	
+	Camera.CFrame = Camera.CFrame * CFrame.new(0, FUNCTIONS.GetCurve(BobbleFrequency, BobbleIntensity) * Velocity / DefaultWalkSpeed, 0) * CFrame.Angles(0, 0, math.rad(FUNCTIONS.GetCurve(RotationFrequency, RotationIntensity) * Velocity / DefaultWalkSpeed))
+end)
+
 
 -- // Main Loop \\
 RunService.PostSimulation:Connect(function(Delta)
@@ -1409,7 +1442,11 @@ RunService.PostSimulation:Connect(function(Delta)
 	end
 
 	if ZOOM_INPUT_DOWN then
-		Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, ZOOMED_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
+		if CURRENT_ITEM or not FUNCTIONS.IsFirstPerson() then
+			Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, DEFAULT_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
+		else
+			Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, ZOOMED_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
+		end
 	else
 		Camera.FieldOfView = FUNCTIONS.Lerp(Camera.FieldOfView, DEFAULT_FIELD_OF_VIEW, FIELD_OF_VIEW_LERP_SPEED)
 	end
