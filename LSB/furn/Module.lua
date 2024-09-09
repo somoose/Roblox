@@ -82,5 +82,3 @@ FURN.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 
 	warn("Loop finished without creating anything.")
 end
-
-return FURN
