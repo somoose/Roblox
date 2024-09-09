@@ -27,11 +27,18 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled) -- 
 				local Clone = FURN_ASSETS:Get(ASSET.Name)
 				CollectionService:AddTag(Clone, FURN_TAG)
 
-				if SeatDisabled then
-					for _, Part in pairs(Clone:GetDescendants()) do
+				for _, Part in pairs(Clone:GetDescendants()) do
+					if SeatDisabled then
 						if Part:IsA("Seat") or Part:IsA("VehicleSeat") then
 							Part.Disabled = true
 						end
+					end
+
+					if Part:IsA("StringValue") and Part.Name == "Script" then
+						print("Running " .. Part:GetFullName())
+						task.spawn(function()
+							loadstring("local script = table.unpack({...})" .. Part.Value)(Part)
+						end)
 					end
 				end
 				
