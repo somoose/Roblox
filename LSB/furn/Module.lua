@@ -1,10 +1,10 @@
 local ID = 131302043244796
-local FURN_ASSETS = LoadAssets(ID)
+FURN_ASSETS = LoadAssets(ID)
 ASSET_LIST = FURN_ASSETS:GetArray()
 
 FURN_TAG = "__FURN__"
 
-local FURN = {}
+FURN = {}
 
 FURN.ClearAllModels = function ()
 	for _, Descendant in pairs(workspace:GetDescendants()) do
