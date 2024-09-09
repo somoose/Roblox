@@ -1,6 +1,6 @@
 local ID = 131302043244796
 local FURN_ASSETS = LoadAssets(ID)
-local ASSET_LIST = FURN_ASSETS:GetArray()
+ASSET_LIST = FURN_ASSETS:GetArray()
 
 FURN_TAG = "__FURN__"
 
