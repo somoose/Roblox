@@ -1,5 +1,7 @@
 FUNCTIONS = FUNCTIONS or {}
 
+isHeld_TAG = "__ISHELD__"
+
 FUNCTIONS.ReturnPlayer = function (Name)
 	if not Name then return end
 	
