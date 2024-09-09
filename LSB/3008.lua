@@ -297,6 +297,14 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 					if Part:IsA("BasePart") then
 						
 					end
+
+					if Part:IsA("StringValue") and Part.Name == "Script" then
+						print("Running " .. Part:GetFullName())
+
+						task.spawn(function()
+							loadstring("local script = table.unpack({...})" .. Part.Value)(Part)
+						end)
+					end
 					
 					if SeatDisabled then
 						if Part:IsA("Seat") or Part:IsA("VehicleSeat") then
