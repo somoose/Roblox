@@ -13,6 +13,14 @@ FUNCTIONS.CreateUID = function ()
 	return tick() .. "|" .. math.random(100000000, 999999999)
 end
 
+PreviousItem = nil
+PreviousNetworkOwners = {}
+PreviousProperties = {}
+
+CanCollide = false
+Transparency = 0.5
+HumanoidSit = true
+
 FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array, AnchoringEnabled: Boolean)
 	if Item then -- User is picking up Item.
 		CollectionService:AddTag(Item, isHeld_TAG)
