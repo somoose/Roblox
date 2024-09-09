@@ -1,4 +1,4 @@
-FUNCTIONS = {}
+FUNCTIONS = FUNCTIONS or {}
 
 FUNCTIONS.ReturnPlayer = function (Name)
 	if not Name then return end
@@ -17,9 +17,9 @@ PreviousItem = nil
 PreviousNetworkOwners = {}
 PreviousProperties = {}
 
-CanCollide = false
-Transparency = 0.5
-HumanoidSit = true
+CanCollide = CanCollide or false
+Transparency = Transparency or 0.5
+HumanoidSit = HumanoidSit or true
 
 FUNCTIONS.GrabRemoteServerEvent = function (_, Item: Instance, BreakJoints: Boolean, TouchingParts: Array, AnchoringEnabled: Boolean)
 	if Item then -- User is picking up Item.
