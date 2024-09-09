@@ -2,7 +2,9 @@ local ID = 131302043244796
 local FURN_ASSETS = LoadAssets(ID)
 local ASSET_LIST = FURN_ASSETS:GetArray()
 
-FUNCTIONS.ClearAllModels = function ()
+local FURN = {}
+
+FURN.ClearAllModels = function ()
 	for _, Descendant in pairs(workspace:GetDescendants()) do
 		if Descendant:IsA("BasePart") or Descendant:IsA("Model") then
 			if CollectionService:HasTag(Descendant, FURN_TAG) then
@@ -14,7 +16,7 @@ FUNCTIONS.ClearAllModels = function ()
 	end
 end
 
-FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
+FURN.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 	Index = Index or ASSET_LIST[math.random(#ASSET_LIST)]
 	Amount = tonumber(Amount) or 1
 	Scale = tonumber(Scale) or 1
@@ -78,3 +80,5 @@ FUNCTIONS.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 
 	warn("Loop finished without creating anything.")
 end
+
+return FURN
