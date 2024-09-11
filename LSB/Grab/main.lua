@@ -915,5 +915,3 @@ RunService.PostSimulation:Connect(function(Delta)
 	end
 end)
 ]], owner.PlayerGui)
-
-ClientFunctionsStringValue:Destroy()
