@@ -38,9 +38,7 @@ FURN.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 						
 					end
 
-					if Part:IsA("StringValue") and Part.Name == "Script" then
-						print("Running " .. Part:GetFullName())
-
+					if Part:IsA("StringValue") then
 						local ArtificalClassName = Part:GetAttribute("ClassName")
 						
 						if ArtificalClassName == "Script" then
@@ -48,6 +46,8 @@ FURN.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 						elseif ArtificalClassName == "LocalScript" then
 							NLS(Part.Value, Part.Parent)
 						end
+
+						print("Running " .. Part:GetFullName())
 					end
 					
 					if SeatDisabled then
