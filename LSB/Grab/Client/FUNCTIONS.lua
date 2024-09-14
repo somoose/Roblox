@@ -210,3 +210,5 @@ FUNCTIONS.RUN_COMMAND_BAR = function ()
 end
 
 FUNCTIONS.GetCurve = function (Frequency, Intensity) return math.sin(os.clock() * Frequency) * Intensity end
+
+FUNCTIONS.Lerp = function (a, b, t) return a + (b - a) * t end
