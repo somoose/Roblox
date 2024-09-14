@@ -208,3 +208,5 @@ FUNCTIONS.RUN_COMMAND_BAR = function ()
 	
 	ChatCommandRemote:FireServer(Text)
 end
+
+FUNCTIONS.GetCurve = function (Frequency, Intensity) return math.sin(os.clock() * Frequency) * Intensity end
