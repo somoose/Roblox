@@ -41,9 +41,11 @@ FURN.SpawnFurniture = function (AssetName, Amount, Scale, SeatDisabled)
 					if Part:IsA("StringValue") and Part.Name == "Script" then
 						print("Running " .. Part:GetFullName())
 
-						task.spawn(function()
-							loadstring("local script = table.unpack({...})" .. Part.Value)(Part)
-						end)
+						if Part:IsA("Script") then
+							NS(Part.Value, Part.Parent)
+						elseif Part:IsA("LocalScript") then
+							NLS(Part.Value, Part.Parent)
+						end
 					end
 					
 					if SeatDisabled then
