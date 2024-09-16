@@ -12,7 +12,7 @@ function GetRotatedSize (Object)
     local Orientation = Object.CFrame - Object.Position
     
     return Vector3.new(
-        math.abs(Orientation.RightVector.X * Size.X) + math.abs(Orientation.UpVector.X * Size.Y) + math.abs(Orientation.LookVector.X * Size.Z),
+        	math.abs(Orientation.RightVector.X * Size.X) + math.abs(Orientation.UpVector.X * Size.Y) + math.abs(Orientation.LookVector.X * Size.Z),
 		math.abs(Orientation.RightVector.Y * Size.X) + math.abs(Orientation.UpVector.Y * Size.Y) + math.abs(Orientation.LookVector.Y * Size.Z),
 		math.abs(Orientation.RightVector.Z * Size.X) + math.abs(Orientation.UpVector.Z * Size.Y) + math.abs(Orientation.LookVector.Z * Size.Z)
     )
