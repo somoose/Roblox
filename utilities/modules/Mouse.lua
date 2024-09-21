@@ -26,7 +26,7 @@ function Mouse:SetFilterType (FilterType)
 	UpdateRaycastParams()
 end
 
-function Mouse:ClearBlacklist ()
+function Mouse:ClearFilterList ()
 	table.clear(Mouse.FilterList)
 	UpdateRaycastParams()
 end
