@@ -22,7 +22,7 @@ local function UpdateRaycastParams ()
 end
 
 function Mouse:SetFilterType (FilterType)
-	RaycastParams.FilterType = FilterType
+	Mouse.FilterType = FilterType
 	UpdateRaycastParams()
 end
 
