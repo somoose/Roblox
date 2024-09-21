@@ -70,7 +70,11 @@ local RaycastCache = {
 }
 
 local function UpdateRaycastCache ()
-	RaycastCache.Result, RaycastCache.Origin, RaycastCache.Direction = GetMouseRaycastResult()
+	local Result, Origin, Direction = GetMouseRaycastResult()
+
+	RaycastCache.Result = Result or {}
+	RaycastCache.Origin = Origin or Vector3.zero
+	RaycastCache.Direction = Direction or Vector3.zero
 end
 
 local MouseMetaTable = {
