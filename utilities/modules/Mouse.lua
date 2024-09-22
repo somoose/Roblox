@@ -21,6 +21,10 @@ local function UpdateRaycastParams ()
 	RaycastParams.FilterDescendantsInstances = Mouse.FilterList
 end
 
+function Mouse:SetBruteForceAllSlow (Boolean)
+	RaycastParams.BruteForceAllSlow = Boolean
+end
+
 function Mouse:SetFilterType (FilterType)
 	Mouse.FilterType = FilterType
 	UpdateRaycastParams()
