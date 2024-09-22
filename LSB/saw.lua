@@ -1,3 +1,5 @@
+local LSB_PARAMS = {...}
+for i = 1, tonumber(LSB_PARAMS[1]) or 1 do
 local function GetClosestPlayer (Position)
 	local ClosestPlayer = nil
 	local MinimumDistance = math.huge
@@ -53,3 +55,4 @@ task.spawn(function()
 		task.wait()
 	end
 end)
+end
