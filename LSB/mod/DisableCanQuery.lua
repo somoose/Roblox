@@ -14,9 +14,13 @@ end
 
 owner = GetPlayer(LSB_PARAMS[1]) or owner
 
-for _, BasePart in pairs(owner.Character:GetDescendants()) do
-	if not BasePart:IsA("BasePart") then continue end
-	
-	BasePart.CanTouch = false
-	BasePart.CanQuery = false
+-- Make character undetectable by touched events and queries (that don't use BruteForceAllSlow)
+local function DisableQueryAndTouch (Character)
+	for _, BasePart in pairs(owner.Character:GetDescendants()) do
+		if not BasePart:IsA("BasePart") then continue end
+		BasePart.CanTouch = false
+		BasePart.CanQuery = false
+	end
 end
+DisableQueryAndTouch(owner.Character)
+owner.CharacterAdded:Connect(DisableQueryAndTouch)
