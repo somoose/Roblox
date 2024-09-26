@@ -63,6 +63,9 @@ function Lock:RecreateWhenDestroyed (Instance)
 	t.Event = function ()
 		local Properties = self:GetLockedProperties(Instance)
 		local New = Instance:Clone()
+		if Properties.CFrame then
+			New.CFrame = Properties.CFrame
+		end
 		self:LockProperties(New, Properties)
 		Instance:Destroy() -- Disconnects all events.
 		Instance = New
@@ -78,4 +81,3 @@ function Lock:RecreateWhenDestroyed (Instance)
 	end
 	t.Connect()
 end
-return Lock
