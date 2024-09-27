@@ -1,3 +1,6 @@
+-- Update to use RunService
+-- (bypasses HyperNull: when stack overflow causes signals to not fire)
+
 local Lock = {List = {}}
 function Lock:LockProperties (Instance, Properties)
 	local InstanceList = self.List[Instance]
@@ -63,13 +66,13 @@ function Lock:RecreateWhenDestroyed (Instance)
 	t.Event = function ()
 		local Properties = self:GetLockedProperties(Instance)
 		local New = Instance:Clone()
+		New.Parent = Parent -- You can't set up signals on parts with nil parents.
+		self:LockProperties(New, Properties)
 		if Properties.CFrame then
 			New.CFrame = Properties.CFrame
 		end
-		self:LockProperties(New, Properties)
-		Instance:Destroy() -- Disconnects all events.
+		Instance:Destroy() -- Disconnects all events connected to prior Instance.
 		Instance = New
-		Instance.Parent = Parent
 		t.Connect()
 	end
 	t.Connect = function ()
@@ -80,4 +83,8 @@ function Lock:RecreateWhenDestroyed (Instance)
 		end)
 	end
 	t.Connect()
+	return function ()
+		return Instance -- Return the current instance.
+	end
 end
+return Lock
