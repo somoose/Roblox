@@ -60,6 +60,7 @@ function Lock:GetLockedProperties (Instance)
 	end
 	return Properties
 end
+-- Make this return a function that disables the recreation.
 function Lock:RecreateWhenDestroyed (Instance)
 	local Parent = Instance.Parent
 	local t = {}
