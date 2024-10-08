@@ -63,6 +63,7 @@ function Life:NextGeneration ()
 	end
 end
 function Life.new (X, Y, XS, YS)
+	local Model
 	local OBJ = {
 		X = X,
 		Y = Y,
@@ -78,7 +79,7 @@ function Life.new (X, Y, XS, YS)
 
 			local Offset = Vector3.new((x - 1) * XS, 0, (y - 1) * YS)
 
-			local Model = Instance.new("Model", workspace)
+			Model = Instance.new("Model", workspace)
 			
 			local Part = Instance.new("Part", Model)
 			Part.Anchored = true
