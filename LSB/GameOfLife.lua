@@ -16,7 +16,7 @@ GridPart.Anchored = true
 GridPart.CanQuery = false
 GridPart.CanCollide = false
 GridPart.CanTouch = false
-GridPart.Size = Vector3.new(X, 0, Y)
+GridPart.Size = Vector3.new(X * XS, 0, Y * YS)
 GridPart.CFrame = GameModel:GetPivot() * CFrame.new(0, GridPart.Size.Y/2 + 0.5, 0)
 GridPart.Transparency = 1
 
@@ -32,7 +32,7 @@ local OutlineThickness = 1
 local Button = Instance.new("Part", GameModel)
 Button.Anchored = true
 Button.Color = GridTexture.Color3
-Button.Size = Vector3.new(X * XS + OutlineThickness*2, 0.99, Y * YS + OutlineThickness*2)
+Button.Size = Vector3.new(X * XS + OutlineThickness * 2, 0.99, Y * YS + OutlineThickness * 2)
 Button.CFrame = GameModel:GetPivot() * CFrame.new(0, -(1 - Button.Size.Y), 0)
 Button.Material = Enum.Material.SmoothPlastic
 
