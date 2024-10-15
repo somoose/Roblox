@@ -54,6 +54,7 @@ BoxCharacter.new = function (Parent, MeshId, TextureID, Size)
 
 	local Humanoid = Instance.new("Humanoid", Model)
 	Humanoid.DisplayName = "Box"
+	Humanoid.PlatformStand = true
 
 	Model.ChildAdded:Connect(function(Child)
 		if Child:IsA("Tool") then
