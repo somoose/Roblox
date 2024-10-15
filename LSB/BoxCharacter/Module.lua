@@ -36,6 +36,7 @@ BoxCharacter.new = function (Parent, MeshId, TextureID, Size)
 	Box.PivotOffset = CFrame.Angles(0, math.pi/2, 0)
 
 	local HumanoidRootPart = Instance.new("Part", Model)
+	HumanoidRootPart.Name = "HumanoidRootPart"
 	HumanoidRootPart.CanCollide = false
 	HumanoidRootPart.CanQuery = false
 	HumanoidRootPart.CanTouch = false
