@@ -35,6 +35,18 @@ BoxCharacter.new = function (Parent, MeshId, TextureID, Size)
 	Box.CustomPhysicalProperties = PhysicalProperties.new(5, 60, 0)
 	Box.PivotOffset = CFrame.Angles(0, math.pi/2, 0)
 
+	local HumanoidRootPart = Instance.new("Part", Model)
+	HumanoidRootPart.CanCollide = false
+	HumanoidRootPart.CanQuery = false
+	HumanoidRootPart.CanTouch = false
+	HumanoidRootPart.Transparency = 1
+	HumanoidRootPart.Size = Vector3.one
+	HumanoidRootPart.Massless = true
+
+	local Root = Instance.new("Weld", HumanoidRootPart)
+	Root.Part0 = HumanoidRootPart
+	Root.Part1 = Box
+
 	local RightGripWeld = Instance.new("Weld", Box)
 	RightGripWeld.Part0 = Box
 	RightGripWeld.C0 = CFrame.new(-Box.Size.X/2, 0, -Box.Size.Z/2)
