@@ -13,9 +13,7 @@ function Table:GetIndex ()
 end
 
 function Table:IncreaseIndex (n)
-	for i = 1, n do
-		self.Index = self.Index + 1
-	end
+	self.Index = self.Index + n
 end
 
 local OBJ = Table:New()
