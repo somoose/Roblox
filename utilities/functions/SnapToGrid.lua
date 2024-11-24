@@ -1,4 +1,4 @@
-return function (Position, GridScale, GridOffset)
+return function (Position, GridScale)
 	return Vector3.new(
 		math.round(Position.X / GridScale.X) * GridScale.X,
 		math.round(Position.Y / GridScale.Y) * GridScale.Y,
